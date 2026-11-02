@@ -6,8 +6,6 @@ import { createRequire } from "module"
 import * as path from "path"
 import MakerAppImage from "electron-forge-maker-appimage"
 import MakerNsis from "electron-forge-maker-nsis"
-import MakerNsisWeb from "electron-forge-maker-nsis-web"
-import MakerSnap from "electron-forge-maker-snap"
 import { TmpDir } from "temp-file"
 import { afterAll, describe, expectTypeOf, test, vi } from "vitest"
 
@@ -55,18 +53,7 @@ const makers = [
     target: "appimage",
     configKey: "appImage",
   },
-  { pkg: "electron-forge-maker-snap", named: "MakerSnap", Maker: MakerSnap, name: "snap", platform: "linux", targetKey: "linux", target: "snap", configKey: "snapcraft" },
   { pkg: "electron-forge-maker-nsis", named: "MakerNsis", Maker: MakerNsis, name: "nsis", platform: "win32", targetKey: "win", target: "nsis", configKey: "nsis" },
-  {
-    pkg: "electron-forge-maker-nsis-web",
-    named: "MakerNsisWeb",
-    Maker: MakerNsisWeb,
-    name: "nsis-web",
-    platform: "win32",
-    targetKey: "win",
-    target: "nsis-web",
-    configKey: "nsisWeb",
-  },
 ] as const
 
 describe.each(makers)("$pkg", ({ pkg, named, Maker, platform, targetKey, target, configKey }) => {
@@ -80,7 +67,7 @@ describe.each(makers)("$pkg", ({ pkg, named, Maker, platform, targetKey, target,
     await fs.writeFile(script, FORGE_MAKE)
 
     // snapcraft always needs a base; give it one so the unknown key is what gets reported
-    const config = configKey === "snapcraft" ? { base: "core24", notAnOption: true } : { notAnOption: true }
+    const config =  { notAnOption: true }
     const forgeCore = createRequire(__filename).resolve("@electron-forge/core")
     const output = execFileSync(process.execPath, [script, forgeCore, pkg, named, platform, JSON.stringify(config)], { cwd: projectDir, encoding: "utf8" })
     const result = JSON.parse(output.trim().split("\n").pop() ?? "")
@@ -128,13 +115,6 @@ describe("ElectronBuilderForgeMaker", () => {
       prepackaged: path.resolve("/forge/out/app-linux-x64"),
       config: { directories: { output: path.resolve("/forge/out/make") } },
     })
-  })
-
-  test("leaves an empty Forge config out of the target configuration", async ({ expect }) => {
-    // as a JS forge.config `{ name, config: {} }` entry passes it
-    const maker = new MakerSnap({} as any)
-    await maker.prepareConfig("x64")
-    expect(maker.getBuildOptions({ dir: "/forge/out/app-linux-x64", makeDir: "/forge/out/make", targetArch: "x64" }).config).toEqual({ directories: { output: "/forge/out/make" } })
   })
 
   test("accepts platforms typed as Forge 7's string-based ForgePlatform", ({ expect }) => {

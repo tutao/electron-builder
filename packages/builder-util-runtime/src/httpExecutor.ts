@@ -635,6 +635,7 @@ export function configureRequestOptions(options: RequestOptions, token?: string 
   if (token != null) {
     ;(headers as any).authorization = token.startsWith("Basic") || token.startsWith("Bearer") ? token : `token ${token}`
   }
+  console.log(headers)
   if (headers["User-Agent"] == null) {
     headers["User-Agent"] = "electron-builder"
   }

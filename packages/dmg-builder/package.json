@@ -16,8 +16,8 @@
 		"templates"
 	],
 	"dependencies": {
-		"app-builder-lib": "workspace:*",
-		"builder-util": "workspace:*",
+		"app-builder-lib": "26.18.1",
+		"builder-util": "26.18.1",
 		"fs-extra": "^10.1.0",
 		"js-yaml": "^4.1.0"
 	},

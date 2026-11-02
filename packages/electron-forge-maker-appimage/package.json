@@ -17,6 +17,6 @@
     "*.d.ts"
   ],
   "dependencies": {
-    "app-builder-lib": "workspace:*"
+    "app-builder-lib": "26.18.1"
   }
 }
