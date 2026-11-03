@@ -3,10 +3,7 @@ import * as fs from "fs"
 import * as path from "path"
 import type * as _BlackboxWinSuite from "../src/updater/blackboxUpdateWinSuite"
 import type * as _DifferentialWinSuite from "../src/updater/differentialUpdateWinSuite"
-import type * as _AppxSuite from "../src/windows/appxTestSuite"
 import type * as _AssistedInstallerSuite from "../src/windows/assistedInstallerTestSuite"
-import type * as _MsiSuite from "../src/windows/msiTestSuite"
-import type * as _MsiWrappedSuite from "../src/windows/msiWrappedTestSuite"
 import type * as _PortableSuite from "../src/windows/portableTestSuite"
 import type * as _WinPackagerSuite from "../src/windows/winPackagerTestSuite"
 import type { SuiteConfig } from "./generate-toolset-tests-shared"
@@ -41,28 +38,6 @@ const SUITES: WindowsSuiteConfig[] = [
     importPath: "windows/assistedInstallerTestSuite",
     describeConfig: {name: "assisted", chain: ["ifWindows"]},
     nsisVersions: NSIS_VERSIONS,
-  },
-  {
-    name: "msi",
-    registerFn: namedFn("registerMsiTests" satisfies keyof typeof _MsiSuite),
-    importPath: "windows/msiTestSuite",
-    describeConfig: {name: "msi", chain: ["ifWindows"]},
-    describeOptions: {sequential: true},
-  },
-  {
-    name: "msiWrapped",
-    registerFn: namedFn("registerMsiWrappedTests" satisfies keyof typeof _MsiWrappedSuite),
-    importPath: "windows/msiWrappedTestSuite",
-    describeConfig: {name: "msiWrapped", chain: ["ifWindows"]},
-    describeOptions: {sequential: true},
-    nsisVersions: NSIS_VERSIONS,
-  },
-  {
-    name: "appx",
-    registerFn: namedFn("registerAppxTests" satisfies keyof typeof _AppxSuite),
-    importPath: "windows/appxTestSuite",
-    describeConfig: {name: "AppX", chain: ["ifWindows"]},
-    winCodeSignVersions: ["1.0.0", "1.1.0"],
   },
   {
     name: "differentialWin",

@@ -1,4 +1,5 @@
 import { Arch, log, serializeToYaml } from "builder-util"
+import { BlockMapDataHolder, deepAssign } from "builder-util-runtime"
 import { outputFile } from "fs-extra"
 import { Lazy } from "lazy-val"
 import * as path from "path"
@@ -10,7 +11,6 @@ import { getNotLocalizedLicenseFile } from "../../util/license"
 import { buildExecArgs, LinuxTargetHelper } from "../LinuxTargetHelper"
 import { createStageDir } from "../targetUtil"
 import { buildLegacyFuse2AppImage, buildStaticRuntimeAppImage } from "./appImageUtil"
-import { BlockMapDataHolder, deepAssign } from "builder-util-runtime"
 
 // https://unix.stackexchange.com/questions/375191/append-to-sub-directory-inside-squashfs-file
 
@@ -73,7 +73,7 @@ export default class AppImageTarget extends Target {
 
     if (
       this.packager.packagerOptions.effectiveOptionComputed != null &&
-      (await this.packager.packagerOptions.effectiveOptionComputed({ desktop: desktopEntry, desktopFileName: `${desktopBaseName}.desktop` }))
+      (await this.packager.packagerOptions.effectiveOptionComputed({desktop: desktopEntry, desktopFileName: `${desktopBaseName}.desktop`}))
     ) {
       await stageDir.cleanup()
       return
@@ -109,7 +109,8 @@ export default class AppImageTarget extends Target {
             })(),
           },
         })
-      } else {
+      }
+      else {
         updateInfo = await buildStaticRuntimeAppImage(appimageTool, {
           appDir: appOutDir,
           stageDir: stageDir.dir,
@@ -140,10 +141,12 @@ export default class AppImageTarget extends Target {
           },
         })
       }
-    } catch (error: any) {
-      log.error({ error: error.message }, "failed to build AppImage")
+    }
+    catch (error: any) {
+      log.error({error: error.message}, "failed to build AppImage")
       throw error
-    } finally {
+    }
+    finally {
       await stageDir.cleanup().catch(() => {})
     }
 

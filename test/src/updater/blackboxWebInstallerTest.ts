@@ -1,8 +1,9 @@
-import { TmpDir } from "builder-util/out/util"
+import { PM } from "app-builder-lib/out/node-module-collector"
+import { spawn, TmpDir } from "builder-util"
 import { execFileSync, execSync } from "child_process"
 import { randomUUID } from "crypto"
 import { Arch, Platform } from "electron-builder"
-import { existsSync, move, outputFile, remove, copy } from "fs-extra"
+import { copy, existsSync, move, outputFile, remove } from "fs-extra"
 import { AddressInfo } from "net"
 import { homedir } from "os"
 import path from "path"
@@ -11,8 +12,6 @@ import { createLocalServer, getParallelsHostIP, sha256File, toVmHomePath } from 
 import { assertPack, modifyPackageJson, PackedContext } from "../helpers/packTester"
 import { ELECTRON_VERSION } from "../helpers/testConfig"
 import { optionsForFlakyE2E, windowsVmPromise } from "./blackboxUpdateHelpers"
-import { PM } from "app-builder-lib/out/node-module-collector"
-import { spawn } from "builder-util"
 
 // ---------------------------------------------------------------------------
 // Web installer blackbox E2E test
@@ -32,7 +31,7 @@ import { spawn } from "builder-util"
 
 describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
   test("web installer downloads and installs app via HTTP server", async (context: TestContext) => {
-    const { expect } = context
+    const {expect} = context
     const isNativeWindows = process.platform === "win32"
     const vm = await windowsVmPromise
 
@@ -50,7 +49,8 @@ describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
     if (isNativeWindows) {
       packageServerHost = "127.0.0.1"
       serverBindAddress = "127.0.0.1"
-    } else {
+    }
+    else {
       const hostIP = getParallelsHostIP()
       if (!hostIP) {
         throw new Error("Cannot determine Parallels host IP — no prl*/bridge* interface found")
@@ -72,8 +72,8 @@ describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
       // The appPackageUrl is baked into the installer at build time, so the port
       // must be known upfront.
       // -----------------------------------------------------------------------
-      const serverRoot = await tmpDir.getTempDir({ prefix: "pkg-server" })
-      ;({ server } = await createLocalServer(serverRoot, serverBindAddress))
+      const serverRoot = await tmpDir.getTempDir({prefix: "pkg-server"})
+      ;({server} = await createLocalServer(serverRoot, serverBindAddress))
       const port = (server.address() as AddressInfo).port
       if (!Number.isInteger(port) || port < 1024 || port > 65535) {
         throw new Error(`Unsafe port: ${port}`)
@@ -97,7 +97,7 @@ describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
             executableName: "TestApp",
             appId: "com.test.webinstaller",
             artifactName: "${productName}-${version}-${arch}.${ext}",
-            extraMetadata: { name: "testapp", version: "1.0.0" },
+            extraMetadata: {name: "testapp", version: "1.0.0"},
             electronLanguages: ["en"],
             electronFuses: {
               runAsNode: false,
@@ -120,14 +120,14 @@ describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
         {
           packageManager: PM.PNPM,
           packed: async (ctx: PackedContext) => {
-            builtDir = await tmpDir.getTempDir({ prefix: "built" })
+            builtDir = await tmpDir.getTempDir({prefix: "built"})
             await move(ctx.outDir, builtDir)
           },
           projectDirCreated: async (projectDir: string, _tmpDir: TmpDir, runtimeEnv: NodeJS.ProcessEnv) => {
             await modifyPackageJson(
               projectDir,
               data => {
-                data.devDependencies = { electron: ELECTRON_VERSION }
+                data.devDependencies = {electron: ELECTRON_VERSION}
               },
               true
             )
@@ -135,12 +135,12 @@ describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
               projectDir,
               data => {
                 data.pnpm = {
-                  supportedArchitectures: { os: ["current"], cpu: ["x64"] },
+                  supportedArchitectures: {os: ["current"], cpu: ["x64"]},
                 }
               },
               false
             )
-            await spawn("pnpm", ["install"], { cwd: projectDir, stdio: "inherit", env: runtimeEnv })
+            await spawn("pnpm", ["install"], {cwd: projectDir, stdio: "inherit", env: runtimeEnv})
           },
         }
       )
@@ -167,9 +167,10 @@ describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
       // -----------------------------------------------------------------------
       if (isNativeWindows) {
         try {
-          execSync('taskkill /F /IM "TestApp Web Setup.exe" /T', { stdio: "ignore" })
+          execSync("taskkill /F /IM \"TestApp Web Setup.exe\" /T", {stdio: "ignore"})
           await new Promise(r => setTimeout(r, 1000))
-        } catch {
+        }
+        catch {
           // no lingering process — expected on first run
         }
 
@@ -177,12 +178,12 @@ describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
         const uninstaller = path.join(localAppData, "Programs", "TestApp", "Uninstall TestApp.exe")
         if (existsSync(uninstaller)) {
           console.log("Uninstalling previous TestApp installation")
-          execFileSync(uninstaller, ["/S", "/C", "exit"], { stdio: "inherit" })
+          execFileSync(uninstaller, ["/S", "/C", "exit"], {stdio: "inherit"})
           await new Promise(r => setTimeout(r, 5000))
         }
 
         console.log("Running web installer:", stubPath)
-        execFileSync(stubPath, ["/S"], { stdio: "inherit" })
+        execFileSync(stubPath, ["/S"], {stdio: "inherit"})
         await new Promise(r => setTimeout(r, 3000))
 
         const installPath = path.join(localAppData, "Programs", "TestApp", "TestApp.exe")
@@ -240,15 +241,17 @@ describe.heavy("web installer (nsis-web) blackbox", optionsForFlakyE2E, () => {
       await outputFile(scriptPath, psScript)
       const winScriptPath = toVmHomePath(scriptPath)
       try {
-        const result = await vm!.exec("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", winScriptPath], { timeout: 360000 })
+        const result = await vm!.exec("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", winScriptPath], {timeout: 360000})
         console.log("Web installer output:", result)
         expect(result).toContain("HASH_OK:true")
         expect(result).toContain("INSTALLER_EXIT:0")
         expect(result).toContain("APP_EXISTS:True")
-      } finally {
+      }
+      finally {
         await remove(scriptPath).catch(() => {})
       }
-    } finally {
+    }
+    finally {
       server?.close()
       await tmpDir.cleanup().catch(() => {})
     }

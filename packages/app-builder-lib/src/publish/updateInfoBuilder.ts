@@ -1,10 +1,10 @@
-import asyncPool from "tiny-async-pool"
 import { Arch, log, safeStringifyJson, serializeToYaml } from "builder-util"
 import { GenericServerOptions, PublishConfiguration, UpdateInfo, WindowsUpdateInfo } from "builder-util-runtime"
 import { outputFile, outputJson, readFile } from "fs-extra"
 import { Lazy } from "lazy-val"
 import * as path from "path"
 import * as semver from "semver"
+import asyncPool from "tiny-async-pool"
 import { Platform } from "../core"
 import { ReleaseInfo } from "../options/PlatformSpecificBuildOptions"
 import { Packager } from "../packager"
@@ -14,7 +14,7 @@ import { hashFile } from "../util/hash"
 import { computeDownloadUrl, getPublishConfigsForUpdateInfo } from "./PublishManager"
 
 async function getReleaseInfo(packager: PlatformPackager<any>) {
-  const releaseInfo: ReleaseInfo = { ...(packager.platformSpecificBuildOptions.releaseInfo || packager.config.releaseInfo) }
+  const releaseInfo: ReleaseInfo = {...(packager.platformSpecificBuildOptions.releaseInfo || packager.config.releaseInfo)}
   if (releaseInfo.releaseNotes == null) {
     const releaseNotesFile = await packager.getResource(
       releaseInfo.releaseNotesFile,
@@ -46,7 +46,7 @@ function isGenerateUpdatesFilesForAllChannels(packager: PlatformPackager<any>) {
 function computeChannelNames(packager: PlatformPackager<any>, publishConfig: PublishConfiguration): Array<string> {
   const currentChannel: string = (publishConfig as GenericServerOptions).channel || "latest"
   // for GitHub should be pre-release way be used
-  if (currentChannel === "alpha" || publishConfig.provider === "github" || !isGenerateUpdatesFilesForAllChannels(packager)) {
+  if (currentChannel === "alpha" || !isGenerateUpdatesFilesForAllChannels(packager)) {
     return [currentChannel]
   }
 
@@ -87,11 +87,6 @@ function computeIsisElectronUpdater1xCompatibility(updaterCompatibility: string 
     return semver.satisfies("1.0.0", updaterCompatibility)
   }
 
-  // spaces is a new publish provider, no need to keep backward compatibility
-  if (publishConfiguration.provider === "spaces") {
-    return false
-  }
-
   const updaterVersion = packager.metadata.dependencies == null ? null : packager.metadata.dependencies["electron-updater"]
   return updaterVersion == null || semver.lt(updaterVersion, "4.0.0")
 }
@@ -129,16 +124,6 @@ export async function createUpdateInfoTasks(event: ArtifactCreated, _publishConf
       ;(info as WindowsUpdateInfo).sha2 = await sha2.value
     }
 
-    if (event.safeArtifactName != null && publishConfiguration.provider === "github") {
-      const newFiles = info.files.slice()
-      newFiles[0].url = event.safeArtifactName
-      info = {
-        ...info,
-        files: newFiles,
-        path: event.safeArtifactName,
-      }
-    }
-
     for (const channel of computeChannelNames(packager, publishConfiguration)) {
       if (isMac && isElectronUpdater1xCompatibility && event.file.endsWith(".zip")) {
         // write only for first channel (generateUpdatesFilesForAllChannels is a new functionality, no need to generate old mac update info file)
@@ -170,7 +155,7 @@ async function createUpdateInfo(version: string, event: ArtifactCreated, release
   const customUpdateInfo = event.updateInfo
   const url = path.basename(event.file)
   const sha512 = (customUpdateInfo == null ? null : customUpdateInfo.sha512) || (await hashFile(event.file))
-  const files = [{ url, sha512 }]
+  const files = [{url, sha512}]
   const result: UpdateInfo = {
     // @ts-ignore
     version,
@@ -260,8 +245,8 @@ async function writeOldMacInfo(
   version: string,
   packager: PlatformPackager<any>
 ) {
-  const isGitHub = publishConfig.provider === "github"
-  const updateInfoFile = isGitHub && outDir === dir ? path.join(dir, "github", `${channel}-mac.json`) : path.join(dir, `${channel}-mac.json`)
+  const isGitHub = false
+  const updateInfoFile = path.join(dir, `${channel}-mac.json`)
   if (!createdFiles.has(updateInfoFile)) {
     createdFiles.add(updateInfoFile)
     await outputJson(
@@ -271,7 +256,7 @@ async function writeOldMacInfo(
         releaseDate: new Date().toISOString(),
         url: computeDownloadUrl(publishConfig, packager.generateName2("zip", "mac", isGitHub), packager),
       },
-      { spaces: 2 }
+      {spaces: 2}
     )
 
     await packager.info.emitArtifactCreated({

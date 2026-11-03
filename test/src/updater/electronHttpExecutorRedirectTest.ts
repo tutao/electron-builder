@@ -1,4 +1,4 @@
-import { TmpDir } from "builder-util/out/util"
+import { TmpDir } from "builder-util"
 import { CancellationToken } from "builder-util-runtime"
 import { ElectronHttpExecutor } from "electron-updater/src/electronHttpExecutor"
 import { EventEmitter } from "events"

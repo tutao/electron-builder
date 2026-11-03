@@ -1,38 +1,23 @@
-import {
-  addValue,
-  Arch,
-  archFromString,
-  AsyncTaskManager,
-  DebugLogger,
-  executeFinally,
-  getArtifactArchName,
-  InvalidConfigurationError,
-  log,
-  MAX_FILE_REQUESTS,
-  orNullIfFileNotExist,
-  sanitizeDirPath,
-  safeStringifyJson,
-  serializeToYaml,
-  TmpDir,
-} from "builder-util"
+import { addValue, Arch, archFromString, AsyncTaskManager, DebugLogger, executeFinally, getArtifactArchName, InvalidConfigurationError, log, MAX_FILE_REQUESTS, orNullIfFileNotExist, safeStringifyJson, sanitizeDirPath, serializeToYaml, TmpDir, } from "builder-util"
 import { CancellationToken, deepAssign, retry } from "builder-util-runtime"
-import { chmod, mkdirs, outputFile } from "fs-extra"
 import { isCI } from "ci-info"
+import { chmod, mkdirs, outputFile } from "fs-extra"
 import { Lazy } from "lazy-val"
 import { release as getOsRelease } from "os"
 import * as path from "path"
+import asyncPool from "tiny-async-pool"
 import { AppInfo } from "./appInfo"
 import { readAsarJson } from "./asar/asar"
 import { AfterExtractContext, AfterPackContext, BeforePackContext, Configuration, Hook } from "./configuration"
 import { Platform, SourceRepositoryInfo, Target } from "./core"
 import { createElectronFrameworkSupport } from "./electron/ElectronFramework"
 import { Framework } from "./Framework"
-import { LibUiFramework } from "./frameworks/LibUiFramework"
+import { determinePackageManagerEnv, PM } from "./node-module-collector"
 import { Metadata } from "./options/metadata"
 import { ArtifactBuildStarted, ArtifactCreated, PackagerOptions } from "./packagerApi"
 import { PlatformPackager } from "./platformPackager"
-import { ProtonFramework } from "./ProtonFramework"
 import { computeArchToTargetNamesMap, createTargets, NoOpTarget } from "./targets/targetFactory"
+import { AsyncEventEmitter, HandlerType } from "./util/asyncEventEmitter"
 import { computeDefaultAppDirectory, getConfig, validateConfiguration } from "./util/config/config"
 import { expandMacro } from "./util/macroExpander"
 import { checkMetadata, readPackageJson } from "./util/packageMetadata"
@@ -40,33 +25,9 @@ import { getRepositoryInfo } from "./util/repositoryInfo"
 import { resolveFunction } from "./util/resolve"
 import { installOrRebuild, nodeGypRebuild } from "./util/yarn"
 import { PACKAGE_VERSION } from "./version"
-import { AsyncEventEmitter, HandlerType } from "./util/asyncEventEmitter"
-import asyncPool from "tiny-async-pool"
-import { determinePackageManagerEnv, PM } from "./node-module-collector"
 
 async function createFrameworkInfo(configuration: Configuration, packager: Packager): Promise<Framework> {
-  let framework = configuration.framework
-  if (framework != null) {
-    framework = framework.toLowerCase()
-  }
-
-  let nodeVersion = configuration.nodeVersion
-  if (framework === "electron" || framework == null) {
-    return await createElectronFrameworkSupport(configuration, packager)
-  }
-
-  if (nodeVersion == null || nodeVersion === "current") {
-    nodeVersion = process.versions.node
-  }
-
-  const isUseLaunchUi = configuration.launchUiVersion !== false
-  if (framework === "proton" || framework === "proton-native") {
-    return new ProtonFramework(nodeVersion, packager.appInfo.productFilename, isUseLaunchUi)
-  } else if (framework === "libui") {
-    return new LibUiFramework(nodeVersion, packager.appInfo.productFilename, isUseLaunchUi)
-  } else {
-    throw new InvalidConfigurationError(`Unknown framework: ${framework}`)
-  }
+  return await createElectronFrameworkSupport(configuration, packager)
 }
 
 type PackagerEvents = {
@@ -95,9 +56,11 @@ export class Packager {
   }
 
   private readonly _packageManager: Lazy<{ pm: PM; workspaceRoot: Promise<string | undefined> }>
+
   async getPackageManager(): Promise<PM> {
     return (await this._packageManager.value).pm
   }
+
   async getWorkspaceRoot(): Promise<string> {
     return (await (await this._packageManager.value).workspaceRoot) || this.projectDir
   }
@@ -244,7 +207,8 @@ export class Packager {
         const suffixPos = type.lastIndexOf(":")
         if (suffixPos > 0) {
           addValue(archToType, archFromString(type.substring(suffixPos + 1)), type.substring(0, suffixPos))
-        } else {
+        }
+        else {
           for (const arch of commonArch(true)) {
             addValue(archToType, arch, type)
           }
@@ -264,18 +228,18 @@ export class Packager {
 
     this.projectDir = sanitizeDirPath(options.projectDir == null ? process.cwd() : options.projectDir)
     this._appDir = this.projectDir
-    this._packageManager = determinePackageManagerEnv({ projectDir: this.projectDir, appDir: this.appDir, workspaceRoot: undefined })
+    this._packageManager = determinePackageManagerEnv({projectDir: this.projectDir, appDir: this.appDir, workspaceRoot: undefined})
 
     this.options = {
       ...options,
       prepackaged: options.prepackaged == null ? null : sanitizeDirPath(path.resolve(this.projectDir, options.prepackaged)),
     }
 
-    log.info({ version: PACKAGE_VERSION, os: getOsRelease() }, "electron-builder")
+    log.info({version: PACKAGE_VERSION, os: getOsRelease()}, "electron-builder")
   }
 
   private async addPackagerEventHandlers() {
-    const { type } = this.appInfo
+    const {type} = this.appInfo
     const root = await this.getWorkspaceRoot()
     this.eventEmitter.on("artifactBuildStarted", await resolveFunction(type, this.config.artifactBuildStarted, "artifactBuildStarted", root), "user")
     this.eventEmitter.on("artifactBuildCompleted", await resolveFunction(type, this.config.artifactBuildCompleted, "artifactBuildCompleted", root), "user")
@@ -362,7 +326,8 @@ export class Packager {
       // it is a path to config file
       configPath = configFromOptions
       configFromOptions = null
-    } else if (configFromOptions != null && typeof configFromOptions.extends === "string" && configFromOptions.extends.includes(".")) {
+    }
+    else if (configFromOptions != null && typeof configFromOptions.extends === "string" && configFromOptions.extends.includes(".")) {
       configPath = configFromOptions.extends
       delete configFromOptions.extends
     }
@@ -375,7 +340,7 @@ export class Packager {
     const devMetadata = this.devMetadata
     const configuration = await getConfig(projectDir, configPath, configFromOptions, new Lazy(() => Promise.resolve(devMetadata)))
 
-    log.debug({ config: getSafeEffectiveConfig(configuration) }, "effective config")
+    log.debug({config: getSafeEffectiveConfig(configuration)}, "effective config")
 
     this._appDir = await computeDefaultAppDirectory(projectDir, configuration.directories!.app)
     this.isTwoPackageJsonProjectLayoutUsed = this._appDir !== projectDir
@@ -385,14 +350,15 @@ export class Packager {
     // tslint:disable:prefer-conditional-expression
     if (this.devMetadata != null && !this.isTwoPackageJsonProjectLayoutUsed) {
       this._metadata = this.devMetadata
-    } else {
+    }
+    else {
       this._metadata = await this.readProjectMetadataIfTwoPackageStructureOrPrepacked(appPackageFile)
     }
     this._originalMetadata = deepAssign({}, this._metadata)
     deepAssign(this._metadata, configuration.extraMetadata)
 
     if (this.isTwoPackageJsonProjectLayoutUsed) {
-      log.debug({ devPackageFile, appPackageFile }, "two package.json structure is used")
+      log.debug({devPackageFile, appPackageFile}, "two package.json structure is used")
     }
     checkMetadata(this.metadata, this.devMetadata, appPackageFile, devPackageFile)
 
@@ -424,7 +390,7 @@ export class Packager {
 
     if (!isCI && (process.stdout as any).isTTY) {
       const effectiveConfigFile = path.join(commonOutDirWithoutPossibleOsMacro, "builder-effective-config.yaml")
-      log.info({ file: log.filePath(effectiveConfigFile) }, "writing effective config")
+      log.info({file: log.filePath(effectiveConfigFile)}, "writing effective config")
       await outputFile(effectiveConfigFile, getSafeEffectiveConfig(this.config))
     }
 
@@ -448,7 +414,7 @@ export class Packager {
           // windows file locks
           const resourceIsBusy = message.includes("EBUSY") || code === "EBUSY"
           if (resourceIsBusy) {
-            log.debug({ error: message || code }, "retrying temporary directory cleanup")
+            log.debug({error: message || code}, "retrying temporary directory cleanup")
             return true
           }
           return false
@@ -465,7 +431,7 @@ export class Packager {
       this.toDispose.length = 0
       for (const disposer of toDispose) {
         await disposer().catch((e: any) => {
-          log.warn({ error: e }, "cannot dispose")
+          log.warn({error: e}, "cannot dispose")
         })
       }
     })
@@ -515,11 +481,12 @@ export class Packager {
 
       let poolCount = Math.floor(packager.config.concurrency?.jobs || 1)
       if (poolCount < 1) {
-        log.warn({ concurrency: poolCount }, "concurrency is invalid, overriding with job count: 1")
+        log.warn({concurrency: poolCount}, "concurrency is invalid, overriding with job count: 1")
         poolCount = 1
-      } else if (poolCount > MAX_FILE_REQUESTS) {
+      }
+      else if (poolCount > MAX_FILE_REQUESTS) {
         log.warn(
-          { concurrency: poolCount, MAX_FILE_REQUESTS },
+          {concurrency: poolCount, MAX_FILE_REQUESTS},
           `job concurrency is greater than recommended MAX_FILE_REQUESTS, this may lead to File Descriptor errors (too many files open). Proceed with caution (e.g. this is an experimental feature)`
         )
       }
@@ -537,7 +504,8 @@ export class Packager {
         const promise = packager.pack(outDir, arch, targetList, taskManager)
         if (poolCount < 2) {
           await promise
-        } else {
+        }
+        else {
           packPromises.push(promise)
         }
       }
@@ -556,7 +524,8 @@ export class Packager {
       for (const target of nameToTarget.values()) {
         if (target.isAsyncSupported) {
           taskManager.addTask(target.finishBuild())
-        } else {
+        }
+        else {
           syncTargetsIfAny.push(target)
         }
       }
@@ -611,14 +580,14 @@ export class Packager {
       return
     }
 
-    const frameworkInfo = { version: this.framework.version, useCustomDist: true }
+    const frameworkInfo = {version: this.framework.version, useCustomDist: true}
     const config = this.config
     if (config.nodeGypRebuild === true) {
       await nodeGypRebuild(platform.nodeName, Arch[arch], frameworkInfo)
     }
 
     if (config.npmRebuild === false) {
-      log.info({ reason: "npmRebuild is set to false" }, "skipped dependencies rebuild")
+      log.info({reason: "npmRebuild is set to false"}, "skipped dependencies rebuild")
       return
     }
 
@@ -639,11 +608,12 @@ export class Packager {
     }
 
     if (config.buildDependenciesFromSource === true && platform.nodeName !== process.platform) {
-      log.info({ reason: "platform is different and buildDependenciesFromSource is set to true" }, "skipped dependencies rebuild")
-    } else {
+      log.info({reason: "platform is different and buildDependenciesFromSource is set to true"}, "skipped dependencies rebuild")
+    }
+    else {
       await installOrRebuild(
         config,
-        { appDir: this.appDir, projectDir: this.projectDir, workspaceRoot: await this.getWorkspaceRoot() },
+        {appDir: this.appDir, projectDir: this.projectDir, workspaceRoot: await this.getWorkspaceRoot()},
         {
           frameworkInfo,
           platform: platform.nodeName,

@@ -1,16 +1,16 @@
 import { AsarFilesystem, readAsar } from "app-builder-lib/out/asar/asar"
 import { PM } from "app-builder-lib/out/node-module-collector"
-import { spawn } from "builder-util/out/util"
+import { spawn } from "builder-util"
 import { Arch, DIR_TARGET, Platform } from "electron-builder"
+import { copy, mkdir, outputFile, readJson, rm, symlink, writeJson } from "fs-extra"
+import { dump } from "js-yaml"
 import * as path from "path"
+import { assertThat } from "./helpers/fileAssert"
 import { appTwoThrows, assertPack, linuxDirTarget, modifyPackageJson, verifyAsarFileTree } from "./helpers/packTester"
 import { ELECTRON_VERSION } from "./helpers/testConfig"
-import { copy, mkdir, outputFile, readJson, rm, symlink, writeJson } from "fs-extra"
-import { assertThat } from "./helpers/fileAssert"
-import { dump } from "js-yaml"
 
 describe("node_module collectors", () => {
-  test("yarn workspace", ({ expect }) =>
+  test("yarn workspace", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-workspace",
@@ -25,7 +25,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("conflict versions", ({ expect }) =>
+  test("conflict versions", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-workspace-version-conflict",
@@ -40,7 +40,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("yarn several workspaces", ({ expect }) =>
+  test("yarn several workspaces", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-several-workspace",
@@ -55,7 +55,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("yarn several workspaces and asarUnpack", ({ expect }) =>
+  test("yarn several workspaces and asarUnpack", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-several-workspace",
@@ -73,7 +73,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test.ifLinux("yarn two package.json w/ native mac-only module (optional dep)", ({ expect }) =>
+  test.ifLinux("yarn two package.json w/ native mac-only module (optional dep)", ({expect}) =>
     assertPack(
       expect,
       "test-app-two-native-modules",
@@ -88,7 +88,7 @@ describe("node_module collectors", () => {
     )
   )
 
-  test("yarn two package.json", ({ expect }) =>
+  test("yarn two package.json", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -139,7 +139,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("yarn two package.json without node_modules", ({ expect }) =>
+  test("yarn two package.json without node_modules", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -169,7 +169,7 @@ describe("node_module collectors", () => {
           })
 
           await mkdir(path.join(projectDir, "app"))
-          await rm(path.join(projectDir, "app", "node_modules"), { recursive: true, force: true })
+          await rm(path.join(projectDir, "app", "node_modules"), {recursive: true, force: true})
           await copy(path.join(projectDir, "index.html"), path.join(projectDir, "app", "index.html"))
           await copy(path.join(projectDir, "index.js"), path.join(projectDir, "app", "index.js"))
 
@@ -190,7 +190,7 @@ describe("node_module collectors", () => {
   // collect, so `protectSystemAndUnsafePaths` never fires and nothing throws. The expectation does
   // not hold for plain (non-symlink) paths; tracked for separate investigation of unsafe-path
   // rejection. Skipped here so it does not block the node-module-collector Windows coverage.
-  test.skip("should throw when attempting to package a system file", async ({ expect }) => {
+  test.skip("should throw when attempting to package a system file", async ({expect}) => {
     const invalidPath = "C:\\Windows\\System32\\drivers\\etc\\hosts"
     return appTwoThrows(
       expect,
@@ -213,7 +213,7 @@ describe("node_module collectors", () => {
     )
   })
 
-  test.ifNotWindows("should throw when attempting to package a symlink to a system file", async ({ expect }) => {
+  test.ifNotWindows("should throw when attempting to package a symlink to a system file", async ({expect}) => {
     const invalidPath = "/etc/passwd"
     const buildConfig = {
       targets: Platform.current().createTarget("dir", Arch.x64),
@@ -239,7 +239,7 @@ describe("node_module collectors", () => {
     )
   })
 
-  test("yarn workspace for scope name", ({ expect }) =>
+  test("yarn workspace for scope name", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-several-workspace",
@@ -264,7 +264,7 @@ describe("node_module collectors", () => {
     ))
 
   // https://github.com/electron-userland/electron-builder/issues/8493
-  test("pnpm es5-ext without hoisted config", ({ expect }) =>
+  test("pnpm es5-ext without hoisted config", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -295,7 +295,7 @@ describe("node_module collectors", () => {
   // The exact version is pinned through `packageManager` so that this pnpm is what corepack activates for
   // both the install and the collector's `pnpm list`; the tree is asserted explicitly rather than via an
   // offset-based snapshot.
-  test("pnpm es5-ext without hoisted config (pnpm 10.29.3+ deduped list output)", ({ expect }) =>
+  test("pnpm es5-ext without hoisted config (pnpm 10.29.3+ deduped list output)", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -343,7 +343,7 @@ describe("node_module collectors", () => {
   // The app is named `debug` and depends on debug@4.4.1. Resolving the app's own package.json by name found
   // node_modules/debug instead, so only debug@4.4.1's dependencies (ms) were kept and the app's own `debug`
   // and `is-number` were silently left out of the asar.
-  test("pnpm app named like one of its dependencies", ({ expect }) =>
+  test("pnpm app named like one of its dependencies", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -371,7 +371,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("pnpm optional dependencies", ({ expect }) =>
+  test("pnpm optional dependencies", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -397,7 +397,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test.ifLinux("pnpm optional dependency not installable on linux", ({ expect }) =>
+  test.ifLinux("pnpm optional dependency not installable on linux", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -424,7 +424,7 @@ describe("node_module collectors", () => {
     )
   )
 
-  test("yarn electron-clear-data", ({ expect }) =>
+  test("yarn electron-clear-data", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -450,7 +450,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("npm electron-clear-data", ({ expect }) =>
+  test("npm electron-clear-data", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -477,7 +477,7 @@ describe("node_module collectors", () => {
     ))
 
   // https://github.com/electron-userland/electron-builder/issues/8842
-  test("yarn some module add by manual instead of install", ({ expect }) =>
+  test("yarn some module add by manual instead of install", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -500,7 +500,7 @@ describe("node_module collectors", () => {
     ))
 
   //https://github.com/electron-userland/electron-builder/issues/8857
-  test("yarn max stack", ({ expect }) =>
+  test("yarn max stack", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -523,7 +523,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("pnpm max stack", ({ expect }) =>
+  test("pnpm max stack", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -547,7 +547,7 @@ describe("node_module collectors", () => {
     ))
 
   //github.com/electron-userland/electron-builder/issues/8842
-  test("yarn ms", ({ expect }) =>
+  test("yarn ms", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -578,7 +578,7 @@ describe("node_module collectors", () => {
     ))
 
   //github.com/electron-userland/electron-builder/issues/8426
-  test("yarn parse-asn1", ({ expect }) =>
+  test("yarn parse-asn1", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -602,7 +602,7 @@ describe("node_module collectors", () => {
     ))
 
   //github.com/electron-userland/electron-builder/issues/8431
-  test("npm tar", ({ expect }) =>
+  test("npm tar", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -626,7 +626,7 @@ describe("node_module collectors", () => {
     ))
 
   //github.com/electron-userland/electron-builder/issues/8881
-  test("pnpm node-linker=hoisted", ({ expect }) =>
+  test("pnpm node-linker=hoisted", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -649,7 +649,7 @@ describe("node_module collectors", () => {
         packed: context => verifyAsarFileTree(expect, context.getResources(Platform.LINUX)),
       }
     ))
-  test("pnpm shamefully-hoist=true", ({ expect }) =>
+  test("pnpm shamefully-hoist=true", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -672,7 +672,7 @@ describe("node_module collectors", () => {
         packed: context => verifyAsarFileTree(expect, context.getResources(Platform.LINUX)),
       }
     ))
-  test("pnpm public-hoist-pattern=*", ({ expect }) =>
+  test("pnpm public-hoist-pattern=*", ({expect}) =>
     assertPack(
       expect,
       "test-app-hoisted",
@@ -696,7 +696,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("pnpm workspace with native module", ({ expect }) =>
+  test("pnpm workspace with native module", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-several-workspace",
@@ -735,7 +735,7 @@ describe("node_module collectors", () => {
     ))
 
   // https://github.com/electron-userland/electron-builder/issues/9711
-  test("pnpm v11 workspace", ({ expect }) =>
+  test("pnpm v11 workspace", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-several-workspace",
@@ -761,14 +761,14 @@ describe("node_module collectors", () => {
             }),
             // pnpm v11 requires explicit build script approval via allowBuilds in pnpm-workspace.yaml
             // (replaces the removed onlyBuiltDependencies / neverBuiltDependencies settings)
-            outputFile(path.join(projectDir, "pnpm-workspace.yaml"), dump({ packages: ["packages/*"], allowBuilds: { electron: true } })),
+            outputFile(path.join(projectDir, "pnpm-workspace.yaml"), dump({packages: ["packages/*"], allowBuilds: {electron: true}})),
           ])
         },
         packed: context => verifyAsarFileTree(expect, context.getResources(Platform.LINUX)),
       }
     ))
 
-  test("yarn berry version conflict with hoisted dependencies", ({ expect }) =>
+  test("yarn berry version conflict with hoisted dependencies", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-workspace-version-conflict",
@@ -792,7 +792,7 @@ describe("node_module collectors", () => {
       }
     ))
 
-  test("yarn berry using extraMetadata.name should not unpack workspace app", ({ expect }) =>
+  test("yarn berry using extraMetadata.name should not unpack workspace app", ({expect}) =>
     assertPack(
       expect,
       "test-app-yarn-workspace",
@@ -827,8 +827,9 @@ async function readAsarPackageVersions(asarFs: AsarFilesystem): Promise<Map<stri
     for (const [name, child] of Object.entries(node.files ?? {})) {
       if (child.files != null) {
         await walk(child, [...segments, name])
-      } else if (name === "package.json" && segments.includes("node_modules")) {
-        const { version } = await asarFs.readJson(path.join(...segments, name))
+      }
+      else if (name === "package.json" && segments.includes("node_modules")) {
+        const {version} = await asarFs.readJson(path.join(...segments, name))
         versions.set(segments.join("/"), String(version))
       }
     }

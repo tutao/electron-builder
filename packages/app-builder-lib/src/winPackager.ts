@@ -8,19 +8,14 @@ import * as path from "path"
 import { readAsarHeader } from "./asar/asar"
 import { SignManager } from "./codeSign/signManager"
 import { signWindows, WindowsSignOptions } from "./codeSign/windowsCodeSign"
-import { WindowsSignAzureManager } from "./codeSign/windowsSignAzureManager"
 import { FileCodeSigningInfo, WindowsSignToolManager } from "./codeSign/windowsSignToolManager"
 import { AfterPackContext } from "./configuration"
 import { DIR_TARGET, Platform, Target } from "./core"
 import { RequestedExecutionLevel, WindowsConfiguration } from "./options/winOptions"
 import { Packager } from "./packager"
 import { chooseNotNull, PlatformPackager } from "./platformPackager"
-import AppXTarget from "./targets/AppxTarget"
-import MsiTarget from "./targets/MsiTarget"
-import MsiWrappedTarget from "./targets/MsiWrappedTarget"
 import { NsisTarget } from "./targets/nsis/NsisTarget"
 import { AppPackageHelper, CopyElevateHelper } from "./targets/nsis/nsisUtil"
-import { WebInstallerTarget } from "./targets/nsis/WebInstallerTarget"
 import { createCommonTarget } from "./targets/targetFactory"
 import { BuildCacheManager, digest } from "./util/cacheManager"
 import { isBuildCacheEnabled } from "./util/flags"
@@ -34,12 +29,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
   readonly vm = new Lazy<VmManager>(() => (process.platform === "win32" ? Promise.resolve(new VmManager()) : getWindowsVm(this.debugLogger)))
 
   readonly signingManager = new Lazy(async () => {
-    let manager: SignManager
-    if (this.platformSpecificBuildOptions.azureSignOptions != null) {
-      manager = new WindowsSignAzureManager(this)
-    } else {
-      manager = new WindowsSignToolManager(this)
-    }
+    const manager: SignManager = new WindowsSignToolManager(this)
     await manager.initialize()
     return manager
   })
@@ -81,34 +71,9 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
 
       if (name === "nsis" || name === "portable") {
         mapper(name, outDir => new NsisTarget(this, outDir, name, getHelper()))
-      } else if (name === "nsis-web") {
-        // package file format differs from nsis target
-        mapper(name, outDir => new WebInstallerTarget(this, path.join(outDir, name), name, new AppPackageHelper(getCopyElevateHelper())))
-      } else {
-        const targetClass: typeof NsisTarget | typeof AppXTarget | typeof MsiTarget | typeof MsiWrappedTarget | null = (() => {
-          switch (name) {
-            case "squirrel":
-              try {
-                return require("electron-builder-squirrel-windows").default
-              } catch (e: any) {
-                throw new InvalidConfigurationError(`Module electron-builder-squirrel-windows must be installed in addition to build Squirrel.Windows: ${e.stack || e}`)
-              }
-
-            case "appx":
-              return require("./targets/AppxTarget").default
-
-            case "msi":
-              return require("./targets/MsiTarget").default
-
-            case "msiwrapped":
-              return require("./targets/MsiWrappedTarget").default
-
-            default:
-              return null
-          }
-        })()
-
-        mapper(name, outDir => (targetClass === null ? createCommonTarget(name, outDir, this) : new (targetClass as any)(this, outDir, name)))
+      }
+      else {
+        mapper(name, outDir => createCommonTarget(name, outDir, this))
       }
     }
   }
@@ -122,7 +87,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
   }
 
   async signIf(file: string): Promise<boolean> {
-    const logFields = { file: log.filePath(file) }
+    const logFields = {file: log.filePath(file)}
     if (!this.shouldSignFile(file, true)) {
       log.info(logFields, "file signing skipped via signExts configuration")
       return false
@@ -134,7 +99,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
 
     const promise = this.signingQueue.then(() => this._sign(file))
     this.signingQueue = promise.catch(e => {
-      log.warn({ file: log.filePath(file), error: e.message }, "signing failed for file, queue will continue to next file")
+      log.warn({file: log.filePath(file), error: e.message}, "signing failed for file, queue will continue to next file")
       return false
     })
     return promise
@@ -213,7 +178,8 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
       const asar = path.resolve(this.getResourcesDir(outDir), "app.asar")
       if (await exists(asar)) {
         hash.update((await readAsarHeader(asar)).header)
-      } else {
+      }
+      else {
         hash.update("no asar")
       }
 
@@ -279,7 +245,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
     }
     if (this.platformSpecificBuildOptions.signAndEditExecutable === false) {
       log.info(
-        { exe: log.filePath(path.join(packContext.appOutDir, exeFileName)) },
+        {exe: log.filePath(path.join(packContext.appOutDir, exeFileName))},
         "executable resource editing and code signing skipped — signAndEditExecutable is false. To skip only code signing while keeping icon and metadata applied, use signExecutable: false instead."
       )
       return false
@@ -295,7 +261,8 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
           path.basename(exeFileName, ".exe"),
           this.platformSpecificBuildOptions.requestedExecutionLevel
         )
-      } else if (this.shouldSignFile(file)) {
+      }
+      else if (this.shouldSignFile(file)) {
         await this.signIf(path.join(packContext.appOutDir, file))
       }
     }

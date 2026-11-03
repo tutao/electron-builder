@@ -1,16 +1,15 @@
-import type { AsarStreamType, AsarDirectory } from "@electron/asar"
-import { isEmptyOrSpaces, log } from "builder-util"
-import { dynamicImport } from "../util/dynamicImport"
-import { exists, Filter, FilterStats } from "builder-util/out/fs"
+import type { AsarDirectory, AsarStreamType } from "@electron/asar"
+import { exists, Filter, FilterStats, isEmptyOrSpaces, log } from "builder-util"
 import * as fs from "fs-extra"
 import { readlink } from "fs-extra"
+import * as os from "os"
 import * as path from "path"
+import { Readable } from "stream"
 import { AsarOptions } from "../options/PlatformSpecificBuildOptions"
 import { PlatformPackager } from "../platformPackager"
-import { ResolvedFileSet, getDestinationPath } from "../util/appFileCopier"
+import { getDestinationPath, ResolvedFileSet } from "../util/appFileCopier"
+import { dynamicImport } from "../util/dynamicImport"
 import { detectUnpackedDirs } from "./unpackDetector"
-import { Readable } from "stream"
-import * as os from "os"
 
 const resolvePath = async (file: string | undefined): Promise<string | undefined> => (file && (await exists(file)) ? fs.realpath(file).catch(() => path.resolve(file)) : undefined)
 const resolvePaths = async (filepaths: (string | undefined)[]) => {
@@ -83,9 +82,9 @@ export class AsarPackager {
       if (args[0] === "Ordering file has 100% coverage.") {
         return // no need to log, this means our ordering logic is working correctly
       }
-      log.info({ args }, "logging @electron/asar")
+      log.info({args}, "logging @electron/asar")
     }
-    const { createPackageFromStreams } = await dynamicImport<typeof import("@electron/asar")>("@electron/asar")
+    const {createPackageFromStreams} = await dynamicImport<typeof import("@electron/asar")>("@electron/asar")
     await createPackageFromStreams(this.outFile, streams)
     console.log = consoleLogger
   }
@@ -209,12 +208,12 @@ export class AsarPackager {
     transformedData: string | Buffer | undefined
     isUnpacked: (dir: string, file?: string, stat?: FilterStats) => boolean
   }): Promise<AsarStreamType> {
-    const { isUnpacked, transformedData, file, destination, stat } = options
+    const {isUnpacked, transformedData, file, destination, stat} = options
     const unpacked = isUnpacked(destination, file, stat)
 
     // Handle directories
     if (!stat.isFile() && !stat.isSymbolicLink()) {
-      return { path: destination, unpacked, type: "directory" }
+      return {path: destination, unpacked, type: "directory"}
     }
 
     // Handle transformed data (pre-processed content)
@@ -231,7 +230,7 @@ export class AsarPackager {
           }),
         unpacked,
         type: "file",
-        stat: { mode: stat.mode, size },
+        stat: {mode: stat.mode, size},
       }
     }
 
@@ -247,7 +246,7 @@ export class AsarPackager {
 
     // Handle regular files
     if (!stat.isSymbolicLink()) {
-      return { ...baseConfig, type: "file" }
+      return {...baseConfig, type: "file"}
     }
 
     // Handle symlinks - make relative to source location
@@ -328,7 +327,7 @@ export class AsarPackager {
 
   private async protectSystemAndUnsafePaths(file: string, workspaceRoot: string): Promise<void> {
     const resolved = await resolvePath(file)
-    const logFields = { source: file, realPath: resolved }
+    const logFields = {source: file, realPath: resolved}
 
     const workspace = await resolvePath(workspaceRoot)
 

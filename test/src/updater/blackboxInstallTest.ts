@@ -1,34 +1,23 @@
-import { AppImageOptions, Configuration, DebOptions, PacmanOptions, RpmOptions, Target, ToolsetConfig } from "app-builder-lib"
+import { AppImageOptions, Configuration, Target, ToolsetConfig } from "app-builder-lib"
 import { PM } from "app-builder-lib/out/node-module-collector"
-import { Arch, Platform } from "electron-builder"
-import { DebUpdater, PacmanUpdater, RpmUpdater } from "electron-updater"
-import { archFromString, log, spawn, TmpDir } from "builder-util/out/util"
 import { deepAssign, GenericServerOptions } from "builder-util-runtime"
-import { execSync } from "child_process"
+import { archFromString, log, spawn, TmpDir } from "builder-util"
+import { Arch, Platform } from "electron-builder"
 import { move, outputFile, readJsonSync } from "fs-extra"
 import path from "path"
 import { TestContext, TestOptions } from "vitest"
-import { launchAndWaitForQuit } from "../helpers/launchAppCrossPlatform"
-import { assertPack, EXTENDED_TIMEOUT, modifyPackageJson, PackedContext, readDebCompression } from "../helpers/packTester"
 import { readAppImageCompression } from "../helpers/fileAssert"
+import { launchAndWaitForQuit } from "../helpers/launchAppCrossPlatform"
+import { assertPack, EXTENDED_TIMEOUT, modifyPackageJson, PackedContext } from "../helpers/packTester"
 import { ELECTRON_VERSION } from "../helpers/testConfig"
 import { OLD_VERSION_NUMBER, writeUpdateConfig } from "../helpers/updaterTestUtil"
 
-const optionsForInstall: TestOptions = { sequential: true, retry: 0, timeout: EXTENDED_TIMEOUT }
+const optionsForInstall: TestOptions = {sequential: true, retry: 0, timeout: EXTENDED_TIMEOUT}
 
 const STANDARD_COMPRESSIONS: Configuration["compression"][] = ["store", "normal", "maximum"]
 const APPIMAGE_COMPRESSIONS: AppImageOptions["compression"][] = ["xz", "gzip", "zstd"]
 const LEGACY_COMPRESSIONS: AppImageOptions["compression"][] = ["xz", "gzip", "zstd"]
 // xz/lzo = forwarded as --compression to FUSE2; zstd/null = flag omitted → mksquashfs defaults to gzip (or xz when compression="maximum")
-
-// Test runtime check. Can't be executed during test initialization (e.g. `ifEnv`)
-const determineEnvironment = (distro: string) => {
-  try {
-    return execSync(`cat /etc/*release | grep "^ID="`).toString().includes(distro)
-  } catch {
-    return false
-  }
-}
 
 // Linux Tests MUST be run in docker containers for proper ephemeral testing environment
 describe.heavy.ifLinux("linux install", optionsForInstall, () => {
@@ -37,55 +26,23 @@ describe.heavy.ifLinux("linux install", optionsForInstall, () => {
       for (const arch of ["x64", "arm64"] as NodeJS.Architecture[]) {
         for (const legacyCompression of LEGACY_COMPRESSIONS) {
           test.ifEnv(arch === process.arch)(`${arch} - toolset: legacy - compression: ${compression} - compressor: override: ${legacyCompression}`, async context => {
-            await runInstallTest(context, "appImage", archFromString(arch), { toolsets: { appimage: "0.0.0" }, compression, appImage: { compression: legacyCompression } })
+            await runInstallTest(context, "appImage", archFromString(arch), {toolsets: {appimage: "0.0.0"}, compression, appImage: {compression: legacyCompression}})
           })
         }
         for (const appimage of ["1.0.2", "1.0.3"] as ToolsetConfig["appimage"][]) {
           for (const appImageCompression of APPIMAGE_COMPRESSIONS) {
             test.ifEnv(arch === process.arch)(`${arch} - toolset: ${appimage} - compression: ${compression} - compressor: ${appImageCompression}`, async context => {
-              await runInstallTest(context, "appImage", archFromString(arch), { toolsets: { appimage }, compression, appImage: { compression: appImageCompression } })
+              await runInstallTest(context, "appImage", archFromString(arch), {toolsets: {appimage}, compression, appImage: {compression: appImageCompression}})
             })
           }
         }
-      }
-    })
-    describe(`compression: ${compression}`, () => {
-      const debCompressions: DebOptions["compression"][] = ["gz", "bzip2", "xz", "zst"]
-      // DEB compression tests — debian container only
-      for (const fpmCompression of debCompressions) {
-        test(`deb - compression: ${compression} - compressor: ${fpmCompression}`, optionsForInstall, async context => {
-          if (!determineEnvironment("debian")) {
-            context.skip()
-          }
-          await runInstallTest(context, "deb", Arch.x64, { compression: compression, deb: { compression: fpmCompression } })
-        })
-      }
-      const rpmCompressions: RpmOptions["compression"][] = ["xz", "xzmt", "gzip", "bzip2"]
-      for (const fpmCompression of rpmCompressions) {
-        // RPM compression tests — fedora container only
-        test(`rpm - compression: ${compression} - compressor: ${fpmCompression}`, optionsForInstall, async context => {
-          if (!determineEnvironment("fedora")) {
-            context.skip()
-          }
-          await runInstallTest(context, "rpm", Arch.x64, { compression: compression, rpm: { compression: fpmCompression } })
-        })
-      }
-      const pacmanCompressions: PacmanOptions["compression"][] = ["gz", "bzip2", "xz", "zstd"]
-      for (const fpmCompression of pacmanCompressions) {
-        // Pacman compression tests — arch container only
-        test(`pacman - compression: ${compression} - compressor: ${fpmCompression}`, optionsForInstall, async context => {
-          if (!determineEnvironment("arch")) {
-            context.skip()
-          }
-          await runInstallTest(context, "pacman", Arch.x64, { compression: compression, pacman: { compression: fpmCompression } })
-        })
       }
     })
   }
 })
 
 async function runInstallTest(context: TestContext, target: ConstructorParameters<typeof Target>[0], arch: Arch, extraConfig: Configuration): Promise<void> {
-  const { expect } = context
+  const {expect} = context
   const tmpDir = new TmpDir("blackbox-install-test")
 
   try {
@@ -115,9 +72,8 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
           grantFileProtocolExtraPrivileges: false,
         },
         publish: {
-          provider: "s3",
-          bucket: "develar",
-          path: "test",
+          provider: "generic",
+          url: "http://example.org",
         },
         files: ["**/*", "../**/node_modules/**", "!path/**"],
       },
@@ -134,7 +90,7 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
         storeDepsLockfileSnapshot: false,
         packageManager: PM.PNPM,
         packed: async (ctx: PackedContext) => {
-          artifactsDir = await tmpDir.getTempDir({ prefix: "artifacts" })
+          artifactsDir = await tmpDir.getTempDir({prefix: "artifacts"})
           await move(ctx.outDir, artifactsDir)
         },
         projectDirCreated: async (projectDir, _tmpDir, runtimeEnv) => {
@@ -174,7 +130,7 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
             },
             false
           )
-          await spawn("pnpm", ["install"], { cwd: projectDir, env: runtimeEnv })
+          await spawn("pnpm", ["install"], {cwd: projectDir, env: runtimeEnv})
         },
       }
     )
@@ -193,45 +149,14 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
       expect(actualCompression).toMatchSnapshot()
 
       appPath = artifactPath
-    } else if (target === "deb") {
-      const debPath = path.join(artifactsDir, "TestApp.deb")
-      const actualCompression = await readDebCompression(debPath)
-      expect(actualCompression).toMatchSnapshot()
-      DebUpdater.installWithCommandRunner(
-        "dpkg",
-        debPath,
-        commandWithArgs => {
-          execSync(commandWithArgs.join(" "), { stdio: "inherit" })
-        },
-        console
-      )
-      appPath = "/opt/TestApp/TestApp"
-    } else if (target === "rpm") {
-      RpmUpdater.installWithCommandRunner(
-        "zypper",
-        path.join(artifactsDir, "TestApp.rpm"),
-        commandWithArgs => {
-          execSync(commandWithArgs.join(" "), { stdio: "inherit" })
-        },
-        console
-      )
-      appPath = "/opt/TestApp/TestApp"
-    } else if (target === "pacman") {
-      PacmanUpdater.installWithCommandRunner(
-        path.join(artifactsDir, "TestApp.pacman"),
-        commandWithArgs => {
-          execSync(commandWithArgs.join(" "), { stdio: "inherit" })
-        },
-        console
-      )
-      appPath = "/opt/TestApp/TestApp"
-    } else {
+    }
+    else {
       throw new Error(`Unsupported install test target: ${target}`)
     }
 
     // A dummy update config is required by launchAndWaitForQuit even when the updater is disabled.
     // AUTO_UPDATER_TEST="" makes the test app print its version and exit immediately.
-    const updateConfigPath = await writeUpdateConfig<GenericServerOptions>({ provider: "generic", url: "http://localhost:0" })
+    const updateConfigPath = await writeUpdateConfig<GenericServerOptions>({provider: "generic", url: "http://localhost:0"})
 
     const appimageToolset = (extraConfig as any).toolsets?.appimage
     // FUSE2 AppImages require /dev/fuse to mount their squashfs, which isn't available in standard
@@ -245,17 +170,18 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
       packageManagerToTest: "",
       env: {
         AUTO_UPDATER_TEST: "",
-        ...(isLegacyToolset ? { APPIMAGE_EXTRACT_AND_RUN: "1" } : {}),
+        ...(isLegacyToolset ? {APPIMAGE_EXTRACT_AND_RUN: "1"} : {}),
       },
       waitForExit: true,
     })
 
-    log.info({ version: result.version, compression: config[target]?.compression ?? config.compression, target }, "Install test launch completed")
+    log.info({version: result.version, compression: config[target]?.compression ?? config.compression, target}, "Install test launch completed")
     if (result.version == null) {
       throw new Error("App did not report version after launch")
     }
     expect(result.version).toMatch(OLD_VERSION_NUMBER)
-  } finally {
+  }
+  finally {
     await tmpDir.cleanup()
   }
 }

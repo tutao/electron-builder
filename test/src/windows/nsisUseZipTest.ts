@@ -9,7 +9,6 @@ import "app-builder-lib/src"
 import type { Configuration } from "app-builder-lib"
 import type { Defines } from "app-builder-lib/src/targets/nsis/Defines"
 import { NsisTarget } from "app-builder-lib/src/targets/nsis/NsisTarget"
-import { WebInstallerTarget } from "app-builder-lib/src/targets/nsis/WebInstallerTarget"
 import { AppPackageHelper, CopyElevateHelper } from "app-builder-lib/src/targets/nsis/nsisUtil"
 
 // `nsis.useZip` must pick the same format for the embedded app package (buildAppPackage) and for the
@@ -53,7 +52,7 @@ async function createFakePackager(config: Configuration) {
 }
 
 function createTarget(packager: any, outDir: string, targetName: string, helper = new AppPackageHelper(new CopyElevateHelper())) {
-  return targetName === "nsis-web" ? new WebInstallerTarget(packager, outDir, targetName, helper) : new NsisTarget(packager, outDir, targetName, helper)
+  return new NsisTarget(packager, outDir, targetName, helper)
 }
 
 async function computePayload(config: Configuration, targetName = "nsis") {

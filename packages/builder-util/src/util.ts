@@ -1,14 +1,14 @@
-import { Nullish, safeStringifyJson, isValidKey, isSensitiveFieldName, hashSensitiveValue } from "builder-util-runtime"
+import { hashSensitiveValue, isSensitiveFieldName, isValidKey, Nullish, safeStringifyJson } from "builder-util-runtime"
 import * as chalk from "chalk"
 import { ChildProcess, execFile, ExecFileOptions, SpawnOptions } from "child_process"
 import { spawn as _spawn } from "cross-spawn"
 import _debug from "debug"
+import { mkdir } from "fs-extra"
 import { dump } from "js-yaml"
 import * as path from "path"
 import { install as installSourceMap } from "source-map-support"
-import { debug, log } from "./log"
 import { exists } from "./fs"
-import { mkdir } from "fs-extra"
+import { debug, log } from "./log"
 import { isEmptyOrSpaces } from "./stringUtil"
 
 if (process.env.JEST_WORKER_ID == null) {
@@ -33,6 +33,10 @@ export * from "./fs"
 
 export { generateKsuid } from "./ksuid"
 export { loadCscLink, decodeCscLinkBase64, resolveCscLinkPath } from "./cscLink"
+export { UploadTask } from "./uploadTask"
+export { MultiProgress } from "./multiProgress"
+export { ProgressBar } from "./progress"
+export { sanitizeFileName } from "./filename"
 
 export const debug7z = _debug("electron-builder:7z")
 
@@ -135,7 +139,7 @@ export function exec(file: string, args?: Array<string> | null, options?: ExecFi
       }
 
       if (options.env != null) {
-        const diffEnv = { ...options.env }
+        const diffEnv = {...options.env}
         for (const name of Object.keys(process.env)) {
           if (process.env[name] === options.env[name]) {
             delete diffEnv[name]
@@ -173,7 +177,8 @@ export function exec(file: string, args?: Array<string> | null, options?: ExecFi
             log.debug(logFields, "executed")
           }
           resolve(stdout.toString())
-        } else {
+        }
+        else {
           let message = chalk.red(removePassword(`Exit code: ${(error as any).code}. ${error.message}`))
           if (stdout.length !== 0) {
             if (file.endsWith("wine")) {
@@ -232,19 +237,21 @@ export function doSpawn(command: string, args: Array<string>, options?: SpawnOpt
   logSpawn(command, args, options)
   try {
     return _spawn(command, args, options)
-  } catch (e: any) {
+  }
+  catch (e: any) {
     throw new Error(`Cannot spawn ${command}: ${e.stack || e}`)
   }
 }
 
 export function spawnAndWrite(command: string, args: Array<string>, data: string, options?: SpawnOptions) {
-  const childProcess = doSpawn(command, args, options, { isPipeInput: true })
+  const childProcess = doSpawn(command, args, options, {isPipeInput: true})
   const timeout = setTimeout(() => childProcess.kill(), 4 * 60 * 1000)
   return new Promise<any>((resolve, reject) => {
     const rejectAndClearTimeout = (error: Error) => {
       try {
         clearTimeout(timeout)
-      } finally {
+      }
+      finally {
         reject(error)
       }
     }
@@ -256,7 +263,8 @@ export function spawnAndWrite(command: string, args: Array<string>, data: string
       () => {
         try {
           clearTimeout(timeout)
-        } finally {
+        }
+        finally {
           resolve(undefined)
         }
       },
@@ -268,7 +276,7 @@ export function spawnAndWrite(command: string, args: Array<string>, data: string
 }
 
 export function spawnAndWriteWithOutput(command: string, args: Array<string>, data: string, options?: SpawnOptions): Promise<{ stdout: string; stderr: string }> {
-  const childProcess = doSpawn(command, args, { ...options, stdio: ["pipe", "pipe", "pipe"] as any })
+  const childProcess = doSpawn(command, args, {...options, stdio: ["pipe", "pipe", "pipe"] as any})
   const isDebugEnabled = debug.enabled
 
   return new Promise((resolve, reject) => {
@@ -312,9 +320,11 @@ export function spawnAndWriteWithOutput(command: string, args: Array<string>, da
       clearTimeout(timeout)
       if (timedOut) {
         reject(new Error(`${command} timed out after 4 minutes`))
-      } else if (code === 0) {
-        resolve({ stdout, stderr })
-      } else {
+      }
+      else if (code === 0) {
+        resolve({stdout, stderr})
+      }
+      else {
         reject(new ExecError(command, code ?? -1, stdout, stderr))
       }
     })
@@ -375,7 +385,8 @@ function handleProcess(event: string, childProcess: ChildProcess, command: strin
       if (resolve != null) {
         resolve(out)
       }
-    } else {
+    }
+    else {
       reject(new ExecError(command, code, out, errorOut))
     }
   })
@@ -426,7 +437,8 @@ export function addValue<K, T>(map: Map<K, Array<T>>, key: K, value: T) {
   const list = map.get(key)
   if (list == null) {
     map.set(key, [value])
-  } else if (!list.includes(value)) {
+  }
+  else if (!list.includes(value)) {
     list.push(value)
   }
 }

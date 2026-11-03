@@ -1,4 +1,4 @@
-import { InvalidConfigurationError, executeFinally, log } from "builder-util"
+import { executeFinally, InvalidConfigurationError, log } from "builder-util"
 import { asArray } from "builder-util-runtime"
 import { PublishOptions } from "electron-publish"
 import { Packager } from "./packager"
@@ -55,7 +55,6 @@ export { MsiOptions } from "./options/MsiOptions"
 export { MsiWrappedOptions } from "./options/MsiWrappedOptions"
 export { BackgroundAlignment, BackgroundScaling, PkgBackgroundOptions, PkgOptions } from "./options/pkgOptions"
 export { AsarOptions, FileSet, FilesBuildOptions, PlatformSpecificBuildOptions, Protocol, ReleaseInfo } from "./options/PlatformSpecificBuildOptions"
-export { PlugDescriptor, SlotDescriptor, SnapcraftOptions, SnapOptions } from "./options/SnapOptions"
 export { SquirrelWindowsOptions } from "./options/SquirrelWindowsOptions"
 export { WindowsAzureSigningConfiguration, WindowsConfiguration, WindowsSigntoolConfiguration } from "./options/winOptions"
 export { BuildResult, Packager } from "./packager"
@@ -63,7 +62,7 @@ export { ArtifactBuildStarted, ArtifactCreated, PackagerOptions } from "./packag
 export { CommonNsisOptions, CustomNsisBinary, NsisOptions, NsisWebOptions, PortableOptions } from "./targets/nsis/nsisOptions"
 
 export { CancellationToken, ProgressInfo } from "builder-util-runtime"
-export { PublishOptions, UploadTask } from "electron-publish"
+export { PublishOptions } from "electron-publish"
 export { WindowsSignOptions } from "./codeSign/windowsCodeSign"
 export {
   CertificateFromStoreInfo,
@@ -81,6 +80,9 @@ export { CustomMacSign, CustomMacSignOptions, MacPackager } from "./macPackager"
 export { PlatformPackager } from "./platformPackager"
 export { PublishManager } from "./publish/PublishManager"
 export { WinPackager } from "./winPackager"
+export { getLicenseFiles, getLicenseAssets } from "./util/license"
+export { downloadBuilderToolset } from "./util/electronGet"
+export { withToolsetLock } from "./util/toolsetLock"
 
 const expectedOptions = new Set(["publish", "targets", "mac", "win", "linux", "projectDir", "platformPackagerFactory", "config", "effectiveOptionComputed", "prepackaged"])
 
@@ -123,7 +125,7 @@ export function build(options: PackagerOptions & PublishOptions, packager: Packa
 
       for (const newArtifact of newArtifacts) {
         if (buildResult.artifactPaths.includes(newArtifact)) {
-          log.warn({ newArtifact }, "skipping publish of artifact, already published")
+          log.warn({newArtifact}, "skipping publish of artifact, already published")
           continue
         }
         buildResult.artifactPaths.push(newArtifact)
@@ -147,7 +149,8 @@ export function build(options: PackagerOptions & PublishOptions, packager: Packa
     if (isErrorOccurred) {
       publishManager.cancelTasks()
       promise = Promise.resolve(null)
-    } else {
+    }
+    else {
       promise = publishManager.awaitTasks()
     }
 

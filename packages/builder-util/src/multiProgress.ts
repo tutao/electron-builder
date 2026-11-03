@@ -1,4 +1,4 @@
-import { setPrinter } from "builder-util"
+import { setPrinter } from "./log"
 import { ProgressBar } from "./progress"
 
 export class MultiProgress {
@@ -16,6 +16,7 @@ export class MultiProgress {
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const manager = this
+
     class MultiProgressBar extends ProgressBar {
       private index = -1
 
@@ -27,7 +28,8 @@ export class MultiProgress {
         if (this.index === -1) {
           this.index = manager.totalLines
           manager.allocateLines(1)
-        } else {
+        }
+        else {
           manager.moveCursor(this.index)
         }
 

@@ -5,13 +5,12 @@ import { Lazy } from "lazy-val"
 import * as path from "path"
 import { Target } from "../core"
 import { WindowsConfiguration } from "../options/winOptions"
-import AppXTarget from "../targets/AppxTarget"
 import { getSignToolPath } from "../toolsets/windows"
 import { ToolInfo } from "../util/bundledTool"
 import { resolveFunction } from "../util/resolve"
-import { readCertInfo } from "./certInfo"
 import { VmManager } from "../vm/vm"
 import { WinPackager } from "../winPackager"
+import { readCertInfo } from "./certInfo"
 import { importCertificate } from "./codesign"
 import { SignManager } from "./signManager"
 import { WindowsSignOptions } from "./windowsCodeSign"
@@ -71,7 +70,8 @@ export class WindowsSignToolManager implements SignManager {
     const publisherName = this.platformSpecificBuildOptions.signtoolOptions?.publisherName
     if (publisherName === null) {
       return null
-    } else if (publisherName != null) {
+    }
+    else if (publisherName != null) {
       return asArray(publisherName)
     }
 
@@ -115,8 +115,9 @@ export class WindowsSignToolManager implements SignManager {
             // https://github.com/electron-userland/electron-builder/pull/2397
             if (platformSpecificBuildOptions.signtoolOptions?.sign == null) {
               throw e
-            } else {
-              log.debug({ error: e }, "getCertificateFromStoreInfo error")
+            }
+            else {
+              log.debug({error: e}, "getCertificateFromStoreInfo error")
               return null
             }
           })
@@ -142,7 +143,8 @@ export class WindowsSignToolManager implements SignManager {
           .catch((e: any) => {
             if (e instanceof InvalidConfigurationError) {
               throw new InvalidConfigurationError(`Env WIN_CSC_LINK is not correct, cannot resolve: ${e.message}`)
-            } else {
+            }
+            else {
               throw e
             }
           })
@@ -162,11 +164,6 @@ export class WindowsSignToolManager implements SignManager {
 
   // https://github.com/electron-userland/electron-builder/issues/2108#issuecomment-333200711
   async computePublisherName(target: Target, publisherName: string) {
-    if (target instanceof AppXTarget && (await this.cscInfo.value) == null) {
-      log.info({ reason: "Windows Store only build" }, "AppX is not signed")
-      return publisherName || "CN=ms"
-    }
-
     const certInfo = await this.lazyCertInfo.value
     const publisher = publisherName || (certInfo == null ? null : certInfo.bloodyMicrosoftSubjectDn)
     if (publisher == null) {
@@ -186,7 +183,7 @@ export class WindowsSignToolManager implements SignManager {
     const cscInfo = await this.cscInfo.value
     if (cscInfo) {
       if (!customSign) {
-        log.info({ path: log.filePath(options.path) }, "signing with signtool.exe")
+        log.info({path: log.filePath(options.path)}, "signing with signtool.exe")
       }
       let logInfo: any = {
         file: log.filePath(options.path),
@@ -196,7 +193,8 @@ export class WindowsSignToolManager implements SignManager {
           ...logInfo,
           certificateFile: cscInfo.file,
         }
-      } else {
+      }
+      else {
         logInfo = {
           ...logInfo,
           subject: cscInfo.subject,
@@ -206,15 +204,16 @@ export class WindowsSignToolManager implements SignManager {
         }
       }
       log.info(logInfo, "signing")
-    } else if (!customSign) {
-      log.info({ path: log.filePath(options.path) }, "no code signing certificate configured, signing is skipped")
+    }
+    else if (!customSign) {
+      log.info({path: log.filePath(options.path)}, "no code signing certificate configured, signing is skipped")
       return false
     }
 
     const executor = customSign || ((config: CustomWindowsSignTaskConfiguration, packager: WinPackager) => this.doSign(config, packager))
     let isNest = false
     for (const hash of hashes) {
-      const taskConfiguration: WindowsSignTaskConfiguration = { ...options, name, site, cscInfo, hash, isNest }
+      const taskConfiguration: WindowsSignTaskConfiguration = {...options, name, site, cscInfo, hash, isNest}
       await Promise.resolve(
         executor(
           {
@@ -237,7 +236,8 @@ export class WindowsSignToolManager implements SignManager {
     const errorMessagePrefix = "Cannot extract publisher name from code signing certificate. As workaround, set win.publisherName. Error: "
     try {
       return await readCertInfo(file, password)
-    } catch (e: any) {
+    }
+    catch (e: any) {
       throw new InvalidConfigurationError(`${errorMessagePrefix}${e.message || e}`)
     }
   }
@@ -275,7 +275,8 @@ export class WindowsSignToolManager implements SignManager {
           args.push("/td", "sha256")
         }
       }
-    } else {
+    }
+    else {
       // Modern: Always add /fd (required by new Windows Kits)
       args.push("/fd", options.hash.toLowerCase())
       // Only add /td for RFC3161 timestamps (incompatible with /t)
@@ -343,12 +344,14 @@ export class WindowsSignToolManager implements SignManager {
       if (cscInfo.isLocalMachineStore) {
         args.push("/sm")
       }
-    } else {
+    }
+    else {
       // Certificate file
       const certExtension = path.extname(certificateFile)
       if (certExtension === ".p12" || certExtension === ".pfx") {
         args.push(isWin ? "/f" : "-pkcs12", vm.toVmFile(certificateFile))
-      } else {
+      }
+      else {
         throw new Error(`Please specify pkcs12 (.p12/.pfx) file, ${certificateFile} is not correct`)
       }
     }
@@ -405,7 +408,7 @@ export class WindowsSignToolManager implements SignManager {
 
       const parentPath = certInfo.PSParentPath
       const store = parentPath.substring(parentPath.lastIndexOf("\\") + 1)
-      log.debug({ store, PSParentPath: parentPath }, "auto-detect certificate store")
+      log.debug({store, PSParentPath: parentPath}, "auto-detect certificate store")
       // https://github.com/electron-userland/electron-builder/issues/1717
       const isLocalMachineStore = parentPath.includes("Certificate::LocalMachine")
       log.debug(null, "auto-detect using of LocalMachine store")
@@ -437,12 +440,13 @@ export class WindowsSignToolManager implements SignManager {
     if (useVmIfNotOnWin) {
       vm = await packager.vm.value
       args = this.computeSignToolArgs(configuration, isWin, vm)
-    } else {
+    }
+    else {
       vm = new VmManager()
       args = configuration.computeSignToolArgs(isWin)
     }
 
-    await retry(() => vm.exec(tool, args, { timeout, env: { ...process.env, ...(toolInfo.env || {}) } }), {
+    await retry(() => vm.exec(tool, args, {timeout, env: {...process.env, ...(toolInfo.env || {})}}), {
       retries: 2,
       interval: 15000,
       backoff: 10000,

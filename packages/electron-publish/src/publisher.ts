@@ -1,9 +1,8 @@
-import { log, PADDING } from "builder-util"
+import { log, PADDING, ProgressBar, UploadTask } from "builder-util"
 import { ProgressCallbackTransform, PublishProvider } from "builder-util-runtime"
 import * as chalk from "chalk"
 import { createReadStream, Stats } from "fs-extra"
-import { PublishContext, UploadTask } from "."
-import { ProgressBar } from "./progress"
+import { PublishContext } from "."
 
 const progressBarOptions = {
   incomplete: " ",
@@ -18,7 +17,7 @@ export abstract class Publisher {
   abstract upload(task: UploadTask): Promise<any>
 
   protected createProgressBar(fileName: string, size: number): ProgressBar | null {
-    log.info({ file: fileName, provider: this.providerName }, "uploading")
+    log.info({file: fileName, provider: this.providerName}, "uploading")
     if (this.context.progress == null || size < 512 * 1024) {
       return null
     }
@@ -34,7 +33,8 @@ export abstract class Publisher {
 
     if (progressBar == null) {
       return fileInputStream
-    } else {
+    }
+    else {
       const progressStream = new ProgressCallbackTransform(fileStat.size, this.context.cancellationToken, it => progressBar.tick(it.delta))
       progressStream.on("error", reject)
       return fileInputStream.pipe(progressStream)
@@ -42,17 +42,4 @@ export abstract class Publisher {
   }
 
   abstract toString(): string
-}
-
-export function getCiTag() {
-  const tag =
-    process.env.TRAVIS_TAG ||
-    process.env.APPVEYOR_REPO_TAG_NAME ||
-    process.env.CIRCLE_TAG ||
-    process.env.BITRISE_GIT_TAG ||
-    process.env.CI_BUILD_TAG || // deprecated, GitLab uses `CI_COMMIT_TAG` instead
-    process.env.CI_COMMIT_TAG ||
-    process.env.BITBUCKET_TAG ||
-    (process.env.GITHUB_REF_TYPE === "tag" ? process.env.GITHUB_REF_NAME : null)
-  return tag != null && tag.length > 0 ? tag : null
 }

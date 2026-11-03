@@ -2,20 +2,17 @@ import { Arch } from "builder-util"
 import { BeforeBuildContext, Target } from "./core"
 import { ElectronBrandingOptions } from "./electron/ElectronFramework"
 import { PrepareApplicationStageDirectoryOptions } from "./Framework"
-import { AppXOptions } from "./options/AppXOptions"
-import { AppImageOptions, DebOptions, FlatpakOptions, LinuxConfiguration, LinuxTargetSpecificOptions, PacmanOptions, RpmOptions } from "./options/linuxOptions"
+import { AppImageOptions, LinuxConfiguration } from "./options/linuxOptions"
 import { DmgOptions, MacConfiguration, MasConfiguration } from "./options/macOptions"
 import { MsiOptions } from "./options/MsiOptions"
 import { MsiWrappedOptions } from "./options/MsiWrappedOptions"
 import { PkgOptions } from "./options/pkgOptions"
 import { PlatformSpecificBuildOptions } from "./options/PlatformSpecificBuildOptions"
-import { SnapcraftOptions, SnapOptions } from "./options/SnapOptions"
-import { SquirrelWindowsOptions } from "./options/SquirrelWindowsOptions"
 import { WindowsConfiguration } from "./options/winOptions"
 import { BuildResult } from "./packager"
 import { ArtifactBuildStarted, ArtifactCreated } from "./packagerApi"
 import { PlatformPackager } from "./platformPackager"
-import { NsisOptions, NsisWebOptions, PortableOptions } from "./targets/nsis/nsisOptions"
+import { NsisOptions, PortableOptions } from "./targets/nsis/nsisOptions"
 import { ElectronDownloadOptions, ElectronGetOptions } from "./util/electronGet"
 
 // duplicate appId here because it is important
@@ -79,12 +76,8 @@ export interface CommonConfiguration {
   readonly win?: WindowsConfiguration | null
   /** NSIS installer options. */
   readonly nsis?: NsisOptions | null
-  /** NSIS web installer options (downloads app package at install time). */
-  readonly nsisWeb?: NsisWebOptions | null
   /** Portable executable options (no installation required). */
   readonly portable?: PortableOptions | null
-  /** Windows Store (AppX) package options. */
-  readonly appx?: AppXOptions | null
   /**
    * MSI package options.
    */
@@ -94,83 +87,17 @@ export interface CommonConfiguration {
    */
   readonly msiWrapped?: MsiWrappedOptions | null
   /**
-   * Squirrel.Windows installer options. Requires the `electron-builder-squirrel-windows` dependency.
-   */
-  readonly squirrelWindows?: SquirrelWindowsOptions | null
-  /**
    * General Linux build options shared across all Linux targets (icon, category, desktop entry,
    * executable name, etc.). Target-specific compression and packaging options live in the
    * per-format interfaces (`DebOptions`, `RpmOptions`, `PacmanOptions`, etc.).
    */
   readonly linux?: LinuxConfiguration | null
-  /**
-   * Debian package options. Targets Debian, Ubuntu, and Debian-based distributions.
-   * Produces a `.deb` archive installable via `dpkg -i` or `apt install`.
-   */
-  readonly deb?: DebOptions | null
-  /**
-   * Flat snap configuration targeting core22 and older snap bases.
-   *
-   * @deprecated Use `snapcraft` instead — it supersedes `snap` when both are present and supports
-   * all snap bases including core24. `snap` will be removed in a future major release.
-   * See {@link SnapOptions} for available properties.
-   */
-  readonly snap?: SnapOptions | null
-  /**
-   * Snapcraft configuration. Prefer this over the deprecated `snap` field.
-   *
-   * Selects the snapcraft base and provides per-core options:
-   * - `base: "core18" | "core20" | "core22"` — legacy builds; accepts the same options as `snap`
-   * - `base: "core24"` — modern builds with the GNOME extension (recommended for new apps, requires Electron 25+)
-   * - `base: "custom"` — pass an existing `snapcraft.yaml` through unchanged; no plugs, extensions,
-   *   or desktop files are injected
-   *
-   * When both `snapcraft` and `snap` are set, `snapcraft` takes precedence.
-   *
-   * @example
-   * ```json
-   * { "snapcraft": { "base": "core24", "core24": { "useLXD": true } } }
-   * ```
-   *
-   * See {@link SnapcraftOptions} for all available properties.
-   */
-  readonly snapcraft?: SnapcraftOptions | null
-  /**
+  /*
    * AppImage options. AppImage is a portable application format that bundles the app
    * and its dependencies into a single self-contained executable that runs on most
    * Linux distributions without installation.
    */
   readonly appImage?: AppImageOptions | null
-  /**
-   * Flatpak options. Flatpak is a sandboxed application distribution format for Linux
-   * that runs in a controlled environment and is distributed via [Flathub](https://flathub.org/)
-   * or other Flatpak repositories.
-   */
-  readonly flatpak?: FlatpakOptions | null
-  /**
-   * Pacman package options. Targets Arch Linux and Arch-based distributions
-   * (Manjaro, EndeavourOS, etc.). Produces a `.pacman` archive installable via `pacman -U`.
-   */
-  readonly pacman?: PacmanOptions | null
-  /**
-   * RPM package options. Targets Fedora, Red Hat Enterprise Linux, SUSE, and related
-   * distributions. Produces a `.rpm` archive installable via `rpm` or `dnf`.
-   */
-  readonly rpm?: RpmOptions | null
-  /**
-   * FreeBSD package options. Produces a `.pkg` archive for the FreeBSD `pkg` package manager.
-   */
-  readonly freebsd?: LinuxTargetSpecificOptions | null
-  /**
-   * Solaris IPS package options. Produces a `.p5p` archive for the Solaris Image Packaging
-   * System (`pkg`).
-   */
-  readonly p5p?: LinuxTargetSpecificOptions | null
-  /**
-   * Alpine Linux APK package options. Produces an `.apk` archive installable via `apk add`.
-   */
-  readonly apk?: LinuxTargetSpecificOptions | null
-
   /**
    * Whether to build the application native dependencies from source.
    * @default false
@@ -337,12 +264,6 @@ export interface Configuration extends CommonConfiguration, PlatformSpecificBuil
   readonly launchUiVersion?: boolean | string | null
 
   /**
-   * The framework name. One of `electron`, `proton`, `libui`. Defaults to `electron`.
-   * @deprecated `proton` and `libui` framework support is no longer actively maintained. Use `electron` (the default).
-   */
-  readonly framework?: string | null
-
-  /**
    * Whether to disable sanity check asar package (useful for custom electron forks that implement their own encrypted integrity validation)
    * @default false
    */
@@ -365,6 +286,7 @@ export interface PackContext {
   readonly arch: Arch
   readonly targets: Array<Target>
 }
+
 export type AfterPackContext = PackContext
 export type BeforePackContext = PackContext
 export type AfterExtractContext = PackContext

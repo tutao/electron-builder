@@ -418,13 +418,6 @@ jobs:
           cache-path: ~/.cache/electron
           cache-key: v-39.8.5-native-electron
           reset-vitest-smart-cache: ${{ inputs.reset-vitest-smart-cache }}
-
-      - name: Test snap ${{ matrix.core }} (Docker)
-        run: SNAP_CORE=${{ matrix.core }} ./test/src/linux/test-snap.sh
-        env:
-          VITEST_SMART_CACHE_FILE: ${{ github.workspace }}/test/vitest-scripts/_vitest-smart-cache.json
-          RESET_VITEST_SHARD_CACHE: ${{ inputs.reset-vitest-smart-cache }}
-
       # Native install+launch test — core24 only; requires snapcraft + unsquashfs on the runner.
       - name: Disable background apt services (prevent apt lock contention)
         if: matrix.core == 'core24'
