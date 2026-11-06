@@ -17,7 +17,7 @@ export abstract class Publisher {
   abstract upload(task: UploadTask): Promise<any>
 
   protected createProgressBar(fileName: string, size: number): ProgressBar | null {
-    log.info({file: fileName, provider: this.providerName}, "uploading")
+    log.info({ file: fileName, provider: this.providerName }, "uploading")
     if (this.context.progress == null || size < 512 * 1024) {
       return null
     }
@@ -33,8 +33,7 @@ export abstract class Publisher {
 
     if (progressBar == null) {
       return fileInputStream
-    }
-    else {
+    } else {
       const progressStream = new ProgressCallbackTransform(fileStat.size, this.context.cancellationToken, it => progressBar.tick(it.delta))
       progressStream.on("error", reject)
       return fileInputStream.pipe(progressStream)

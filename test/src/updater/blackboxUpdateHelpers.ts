@@ -112,7 +112,7 @@ export async function doBuild(
         signed: !isWindows,
         signedWin: isWindows,
         packed,
-        packageManager: PM.PNPM,
+        packageManager: PM.NPM,
         projectDirCreated: async (projectDir, _tmpDir, runtimeEnv) => {
           await outputFile(path.join(projectDir, ".npmrc"), "node-linker=hoisted")
 
@@ -141,12 +141,13 @@ export async function doBuild(
           await modifyPackageJson(
             projectDir,
             data => {
-              data.pnpm = {
-                supportedArchitectures: {
-                  os: ["current"],
-                  cpu: ["x64", "arm64"],
-                },
-              }
+              // FIXME do we need it?
+              // data.pnpm = {
+              //   supportedArchitectures: {
+              //     os: ["current"],
+              //     cpu: ["x64", "arm64"],
+              //   },
+              // }
             },
             false
           )

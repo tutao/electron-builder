@@ -3,7 +3,7 @@ import { pathExists } from "fs-extra"
 import { homedir } from "os"
 import * as path from "path"
 import { Configuration } from "../configuration"
-import { PM, getPackageManagerCommand } from "../node-module-collector"
+import { getPackageManagerCommand } from "../node-module-collector"
 import { detectPackageManager } from "../node-module-collector/packageManager"
 import { rebuild as remoteRebuild } from "./rebuild"
 import * as which from "which"
@@ -100,14 +100,6 @@ export async function installDependencies(
   log.info({ pm, platform, arch, projectDir, appDir, workspaceRoot: _resolvedWorkspaceDir }, "installing dependencies")
 
   const execArgs = ["install"]
-  if (pm === PM.YARN) {
-    execArgs.push("--prefer-offline")
-  } else if (pm === PM.YARN_BERRY) {
-    if (process.env.NPM_NO_BIN_LINKS === "true") {
-      execArgs.push("--no-bin-links")
-    }
-  }
-
   const execPath = getPackageManagerCommand(pm)
 
   if (additionalArgs != null) {

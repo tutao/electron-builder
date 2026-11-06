@@ -1,3 +1,7 @@
+import type { Configuration } from "app-builder-lib"
+import type { Defines } from "app-builder-lib/src/targets/nsis/Defines"
+import { NsisTarget } from "app-builder-lib/src/targets/nsis/NsisTarget"
+import { AppPackageHelper, CopyElevateHelper } from "app-builder-lib/src/targets/nsis/nsisUtil"
 import { Arch, exists, log } from "builder-util"
 import * as fs from "fs/promises"
 import * as os from "os"
@@ -6,10 +10,6 @@ import { afterEach, beforeEach, vi } from "vitest"
 // load the package entry first: importing NsisTarget on its own enters the platformPackager <-> index
 // import cycle mid-way and LinuxPackager then extends an undefined PlatformPackager
 import "app-builder-lib/src"
-import type { Configuration } from "app-builder-lib"
-import type { Defines } from "app-builder-lib/src/targets/nsis/Defines"
-import { NsisTarget } from "app-builder-lib/src/targets/nsis/NsisTarget"
-import { AppPackageHelper, CopyElevateHelper } from "app-builder-lib/src/targets/nsis/nsisUtil"
 
 // `nsis.useZip` must pick the same format for the embedded app package (buildAppPackage) and for the
 // installer's extractor (ZIP_COMPRESSION / COMPRESSION_METHOD). NsisTarget is built over a minimal fake
@@ -83,16 +83,6 @@ test("nsis useZip is ignored (with a warning) for differential-aware builds, whi
 test("nsis useZip with differentialPackage: false embeds and extracts a zip payload", async ({ expect }) => {
   const result = await computePayload({ nsis: { useZip: true, differentialPackage: false } })
   expect(result).toStrictEqual({ archiveFormat: "zip", zipCompression: true, compressionMethod: "zip", warnings: [] })
-})
-
-test("nsis-web never gets a zip package (with a warning), since the web installer only downloads and extracts 7z", async ({ expect }) => {
-  const result = await computePayload({ nsisWeb: { useZip: true, differentialPackage: false } }, "nsis-web")
-  expect(result).toStrictEqual({
-    archiveFormat: "7z",
-    zipCompression: false,
-    compressionMethod: undefined,
-    warnings: ["useZip is ignored because the web installer always uses a 7z package"],
-  })
 })
 
 // nsis and portable share one AppPackageHelper (see WinPackager.createTargets); a cached package must

@@ -67,7 +67,7 @@ describe.each(makers)("$pkg", ({ pkg, named, Maker, platform, targetKey, target,
     await fs.writeFile(script, FORGE_MAKE)
 
     // snapcraft always needs a base; give it one so the unknown key is what gets reported
-    const config =  { notAnOption: true }
+    const config = { notAnOption: true }
     const forgeCore = createRequire(__filename).resolve("@electron-forge/core")
     const output = execFileSync(process.execPath, [script, forgeCore, pkg, named, platform, JSON.stringify(config)], { cwd: projectDir, encoding: "utf8" })
     const result = JSON.parse(output.trim().split("\n").pop() ?? "")

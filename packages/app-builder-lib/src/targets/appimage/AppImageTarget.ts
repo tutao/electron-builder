@@ -73,7 +73,7 @@ export default class AppImageTarget extends Target {
 
     if (
       this.packager.packagerOptions.effectiveOptionComputed != null &&
-      (await this.packager.packagerOptions.effectiveOptionComputed({desktop: desktopEntry, desktopFileName: `${desktopBaseName}.desktop`}))
+      (await this.packager.packagerOptions.effectiveOptionComputed({ desktop: desktopEntry, desktopFileName: `${desktopBaseName}.desktop` }))
     ) {
       await stageDir.cleanup()
       return
@@ -109,8 +109,7 @@ export default class AppImageTarget extends Target {
             })(),
           },
         })
-      }
-      else {
+      } else {
         updateInfo = await buildStaticRuntimeAppImage(appimageTool, {
           appDir: appOutDir,
           stageDir: stageDir.dir,
@@ -141,12 +140,10 @@ export default class AppImageTarget extends Target {
           },
         })
       }
-    }
-    catch (error: any) {
-      log.error({error: error.message}, "failed to build AppImage")
+    } catch (error: any) {
+      log.error({ error: error.message }, "failed to build AppImage")
       throw error
-    }
-    finally {
+    } finally {
       await stageDir.cleanup().catch(() => {})
     }
 

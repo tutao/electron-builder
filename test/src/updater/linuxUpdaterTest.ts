@@ -1,4 +1,4 @@
-import { GithubOptions } from "builder-util-runtime"
+import { GenericServerOptions } from "builder-util-runtime"
 import { execSync } from "child_process"
 import { AppUpdater, DebUpdater, PacmanUpdater, RpmUpdater } from "electron-updater"
 import { afterEach, expect, ExpectStatic, test } from "vitest"
@@ -12,10 +12,9 @@ const runTest = async (expect: ExpectStatic, updaterClass: any, expectedExtensio
   const updater = new updaterClass(null, testAppAdapter)
   tuneTestUpdater(updater, { platform: "linux" })
 
-  updater.updateConfigPath = await writeUpdateConfig<GithubOptions>({
-    provider: "github",
-    owner: "mmaietta",
-    repo: "electron-builder-test",
+  updater.updateConfigPath = await writeUpdateConfig<GenericServerOptions>({
+    provider: "generic",
+    url: "http://example.com",
   })
 
   const updateCheckResult = await validateDownload(expect, updater)

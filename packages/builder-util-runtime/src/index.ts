@@ -20,13 +20,7 @@ export {
 } from "./httpExecutor"
 export { MemoLazy } from "./MemoLazy"
 export { ProgressCallbackTransform, ProgressInfo } from "./ProgressCallbackTransform"
-export {
-  AllPublishOptions,
-  CustomPublishOptions,
-  GenericServerOptions,
-  PublishConfiguration,
-  PublishProvider,
-} from "./publishOptions"
+export { AllPublishOptions, CustomPublishOptions, GenericServerOptions, PublishConfiguration, PublishProvider } from "./publishOptions"
 export { retry } from "./retry"
 export { parseDn } from "./rfc2253Parser"
 export { BlockMapDataHolder, PackageFileInfo, ReleaseNoteInfo, UpdateFileInfo, UpdateInfo, WindowsUpdateInfo } from "./updateInfo"

@@ -1,13 +1,9 @@
 import { OutgoingHttpHeaders } from "http"
-import { Nullish } from "./objects"
 
 export type PublishProvider = "generic" | "custom"
 
 // typescript-json-schema generates only PublishConfiguration if it is specified in the list, so, it is not added here
-export type AllPublishOptions =
-  | string
-  | GenericServerOptions
-  | CustomPublishOptions
+export type AllPublishOptions = string | GenericServerOptions | CustomPublishOptions
 
 export interface PublishConfiguration {
   /**
@@ -116,19 +112,4 @@ export interface GitlabReleaseAsset {
     direct_asset_url: string
     link_type: string
   }>
-}
-
-export function getS3LikeProviderBaseUrl(configuration: PublishConfiguration) {
-  const provider = configuration.provider
-  throw new Error(`Not supported provider: ${provider}`)
-}
-
-function appendPath(url: string, p: string | Nullish): string {
-  if (p != null && p.length > 0) {
-    if (!p.startsWith("/")) {
-      url += "/"
-    }
-    url += p
-  }
-  return url
 }

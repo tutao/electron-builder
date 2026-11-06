@@ -5,7 +5,6 @@ export { MultiProgress }
 
 export type PublishPolicy = "always" | "never"
 
-
 export interface PublishOptions {
   publish?: PublishPolicy | null
 }
@@ -16,4 +15,3 @@ export interface PublishContext {
   readonly cancellationToken: CancellationToken
   readonly progress: MultiProgress | null
 }
-

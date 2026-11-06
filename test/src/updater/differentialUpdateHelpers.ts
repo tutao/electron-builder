@@ -1,18 +1,18 @@
 import { Arch, Configuration, Platform } from "app-builder-lib"
+import { ToolsetConfig } from "app-builder-lib/src/configuration"
 import { getArchSuffix } from "builder-util"
-import { GenericServerOptions, Nullish, S3Options } from "builder-util-runtime"
+import { GenericServerOptions, Nullish } from "builder-util-runtime"
 import { AppImageUpdater, BaseUpdater, MacUpdater } from "electron-updater"
 import { EventEmitter } from "events"
 import { move } from "fs-extra"
 import * as path from "path"
 import { TmpDir } from "temp-file"
-import { TestAppAdapter } from "../helpers/TestAppAdapter"
-import { PackedContext, assertPack, removeUnstableProperties } from "../helpers/packTester"
-import { NEW_VERSION_NUMBER, OLD_VERSION_NUMBER, tuneTestUpdater, writeUpdateConfig } from "../helpers/updaterTestUtil"
-import { mockForNodeRequire } from "vitest-mock-commonjs"
 import { ExpectStatic } from "vitest"
+import { mockForNodeRequire } from "vitest-mock-commonjs"
 import { createLocalServer } from "../helpers/launchAppCrossPlatform"
-import { ToolsetConfig } from "app-builder-lib/src/configuration"
+import { assertPack, PackedContext, removeUnstableProperties } from "../helpers/packTester"
+import { TestAppAdapter } from "../helpers/TestAppAdapter"
+import { NEW_VERSION_NUMBER, OLD_VERSION_NUMBER, tuneTestUpdater, writeUpdateConfig } from "../helpers/updaterTestUtil"
 
 export async function doBuild(
   expect: ExpectStatic,
@@ -41,9 +41,8 @@ export async function doBuild(
           ...extraConfig,
           compression: "normal",
           publish: {
-            provider: "s3",
-            bucket: "develar",
-            path: "test",
+            provider: "generic",
+            url: "http://example.com",
           },
         },
       },
@@ -141,7 +140,7 @@ export async function testBlockMap(expect: ExpectStatic, oldDir: string, newDir:
         throw new Error(`currentUpdaterCacheDirName must be not null, appUpdateConfigPath: ${updater._appUpdateConfigPath}`)
       }
 
-      updater.updateConfigPath = await writeUpdateConfig<GenericServerOptions | S3Options>({
+      updater.updateConfigPath = await writeUpdateConfig<GenericServerOptions>({
         provider: "generic",
         updaterCacheDirName: currentUpdaterCacheDirName,
         url: `http://127.0.0.1:${port}`,

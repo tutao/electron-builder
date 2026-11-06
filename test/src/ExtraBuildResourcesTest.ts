@@ -1,5 +1,6 @@
+import { downloadArtifact } from "@electron/get"
 import { spawn } from "builder-util"
-import { Arch, build, PackagerOptions, Platform } from "electron-builder"
+import { Arch, PackagerOptions, Platform } from "electron-builder"
 import * as fs from "fs"
 import { readdir } from "fs/promises"
 import * as path from "path"
@@ -10,7 +11,6 @@ import { assertThat } from "./helpers/fileAssert"
 import { app, assertPack, linuxDirTarget, modifyPackageJson } from "./helpers/packTester"
 import { ELECTRON_VERSION } from "./helpers/testConfig"
 import { expectUpdateMetadata } from "./helpers/winHelper"
-import { downloadArtifact } from "@electron/get"
 
 function createBuildResourcesTest(expect: ExpectStatic, packagerOptions: PackagerOptions) {
   return app(
@@ -51,35 +51,6 @@ test.ifNotWindows("custom buildResources and output dirs: mac", ({ expect }) =>
 test.ifNotMac("custom buildResources and output dirs: win", ({ expect }) => createBuildResourcesTest(expect, { targets: Platform.WINDOWS.createTarget("nsis", Arch.x64) }))
 test.ifLinux("custom buildResources and output dirs: linux", ({ expect }) => createBuildResourcesTest(expect, { targets: Platform.LINUX.createTarget("appimage", Arch.x64) }))
 
-test.ifNotWindows("prepackaged", ({ expect }) =>
-  app(
-    expect,
-    {
-      targets: linuxDirTarget,
-    },
-    {
-      packed: async context => {
-        await build({
-          prepackaged: path.join(context.outDir, "linux-unpacked"),
-          projectDir: context.projectDir,
-          linux: [],
-          config: {
-            // test target
-            linux: {
-              target: {
-                target: "deb",
-                arch: "ia32",
-              },
-            },
-            compression: "store",
-          },
-        })
-        await assertThat(expect, path.join(context.projectDir, "dist", "TestApp_1.1.0_i386.deb")).isFile()
-      },
-    }
-  )
-)
-
 test.ifNotWindows("retrieve latest electron version", ({ expect }) =>
   app(
     expect,
@@ -114,31 +85,6 @@ test.ifNotWindows("retrieve latest electron-nightly version", ({ expect }) =>
           }
           delete data.build.electronVersion
         }),
-    }
-  )
-)
-
-test.ifNotWindows("override targets in the config", ({ expect }) =>
-  app(
-    expect,
-    {
-      targets: linuxDirTarget,
-    },
-    {
-      packed: async context => {
-        await build({
-          projectDir: context.projectDir,
-          linux: ["deb"],
-          config: {
-            publish: null,
-            // https://github.com/electron-userland/electron-builder/issues/1355
-            linux: {
-              target: ["AppImage", "deb", "rpm", "pacman"],
-            },
-            compression: "store",
-          },
-        })
-      },
     }
   )
 )

@@ -81,7 +81,7 @@ export class DmgTarget extends Target {
 
     const licenseData = await addLicenseToDmg(packager, this.options.license)
 
-    if (!(await customizeDmg({appPath, artifactPath, volumeName, specification, packager, licenseData}))) {
+    if (!(await customizeDmg({ appPath, artifactPath, volumeName, specification, packager, licenseData }))) {
       return
     }
 
@@ -90,7 +90,7 @@ export class DmgTarget extends Target {
     }
 
     if (packager.packagerOptions.effectiveOptionComputed != null) {
-      await packager.packagerOptions.effectiveOptionComputed({licenseData})
+      await packager.packagerOptions.effectiveOptionComputed({ licenseData })
     }
 
     if (this.options.sign === true) {
@@ -161,7 +161,7 @@ export class DmgTarget extends Target {
   // public to test
   async computeDmgOptions(appPath: string): Promise<DmgOptions> {
     const packager = this.packager
-    const specification: DmgOptions = {...this.options}
+    const specification: DmgOptions = { ...this.options }
     if (specification.icon == null && specification.icon !== null) {
       specification.icon = await packager.getIconPath()
     }
@@ -175,22 +175,18 @@ export class DmgTarget extends Target {
       if (background != null) {
         throw new InvalidConfigurationError("Both dmg.backgroundColor and dmg.background are specified — please set the only one")
       }
-    }
-    else if (background == null) {
+    } else if (background == null) {
       specification.background = await computeBackground(packager)
-    }
-    else {
+    } else {
       specification.background = await packager.getResource(background)
     }
 
     if (specification.format == null) {
       if (process.env.ELECTRON_BUILDER_COMPRESSION_LEVEL != null) {
         specification.format = "UDZO"
-      }
-      else if (packager.compression === "store") {
+      } else if (packager.compression === "store") {
         specification.format = "UDRO"
-      }
-      else {
+      } else {
         specification.format = packager.compression === "maximum" ? "UDBZ" : "UDZO"
       }
     }

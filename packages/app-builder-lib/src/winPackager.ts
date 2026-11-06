@@ -71,8 +71,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
 
       if (name === "nsis" || name === "portable") {
         mapper(name, outDir => new NsisTarget(this, outDir, name, getHelper()))
-      }
-      else {
+      } else {
         mapper(name, outDir => createCommonTarget(name, outDir, this))
       }
     }
@@ -87,7 +86,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
   }
 
   async signIf(file: string): Promise<boolean> {
-    const logFields = {file: log.filePath(file)}
+    const logFields = { file: log.filePath(file) }
     if (!this.shouldSignFile(file, true)) {
       log.info(logFields, "file signing skipped via signExts configuration")
       return false
@@ -99,7 +98,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
 
     const promise = this.signingQueue.then(() => this._sign(file))
     this.signingQueue = promise.catch(e => {
-      log.warn({file: log.filePath(file), error: e.message}, "signing failed for file, queue will continue to next file")
+      log.warn({ file: log.filePath(file), error: e.message }, "signing failed for file, queue will continue to next file")
       return false
     })
     return promise
@@ -178,8 +177,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
       const asar = path.resolve(this.getResourcesDir(outDir), "app.asar")
       if (await exists(asar)) {
         hash.update((await readAsarHeader(asar)).header)
-      }
-      else {
+      } else {
         hash.update("no asar")
       }
 
@@ -245,7 +243,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
     }
     if (this.platformSpecificBuildOptions.signAndEditExecutable === false) {
       log.info(
-        {exe: log.filePath(path.join(packContext.appOutDir, exeFileName))},
+        { exe: log.filePath(path.join(packContext.appOutDir, exeFileName)) },
         "executable resource editing and code signing skipped — signAndEditExecutable is false. To skip only code signing while keeping icon and metadata applied, use signExecutable: false instead."
       )
       return false
@@ -261,8 +259,7 @@ export class WinPackager extends PlatformPackager<WindowsConfiguration> {
           path.basename(exeFileName, ".exe"),
           this.platformSpecificBuildOptions.requestedExecutionLevel
         )
-      }
-      else if (this.shouldSignFile(file)) {
+      } else if (this.shouldSignFile(file)) {
         await this.signIf(path.join(packContext.appOutDir, file))
       }
     }

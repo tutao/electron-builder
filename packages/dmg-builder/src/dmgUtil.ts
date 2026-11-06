@@ -22,8 +22,7 @@ async function getDmgVendorPath(): Promise<string> {
     let dmgbuildStat: Awaited<ReturnType<typeof stat>>
     try {
       dmgbuildStat = await stat(resolvedPath)
-    }
-    catch (e: any) {
+    } catch (e: any) {
       if (e.code === "ENOENT") {
         throw new Error(`CUSTOM_DMGBUILD_PATH "${resolvedPath}" does not exist`)
       }
@@ -32,7 +31,7 @@ async function getDmgVendorPath(): Promise<string> {
     if (!dmgbuildStat.isFile()) {
       throw new Error(`CUSTOM_DMGBUILD_PATH "${resolvedPath}" is not a regular file`)
     }
-    log.warn({path: resolvedPath}, "using CUSTOM_DMGBUILD_PATH override for dmgbuild binary")
+    log.warn({ path: resolvedPath }, "using CUSTOM_DMGBUILD_PATH override for dmgbuild binary")
     return resolvedPath
   }
 
@@ -100,11 +99,9 @@ export async function computeBackground(packager: PlatformPackager<any>): Promis
   const resourceList = await packager.resourceList
   if (resourceList.includes("background.tiff")) {
     return path.join(packager.buildResourcesDir, "background.tiff")
-  }
-  else if (resourceList.includes("background.png")) {
+  } else if (resourceList.includes("background.png")) {
     return path.join(packager.buildResourcesDir, "background.png")
-  }
-  else {
+  } else {
     return path.join(getDmgTemplatePath(), "background.tiff")
   }
 }
@@ -112,12 +109,12 @@ export async function computeBackground(packager: PlatformPackager<any>): Promis
 /** @internal */
 export function serializeString(data: string) {
   return (
-    "  $\"" +
+    '  $"' +
     data
       .match(/.{1,32}/g)!
       .map(it => it.match(/.{1,4}/g)!.join(" "))
-      .join("\"\n  $\"") +
-    "\""
+      .join('"\n  $"') +
+    '"'
   )
 }
 
@@ -130,7 +127,7 @@ type DmgBuilderConfig = {
   licenseData?: DmgBuildLicenseConfig | null
 }
 
-export async function customizeDmg({appPath, artifactPath, volumeName, specification, packager, licenseData}: DmgBuilderConfig): Promise<boolean> {
+export async function customizeDmg({ appPath, artifactPath, volumeName, specification, packager, licenseData }: DmgBuilderConfig): Promise<boolean> {
   const isValidIconTextSize = !!specification.iconTextSize && specification.iconTextSize >= 10 && specification.iconTextSize <= 16
   const iconTextSize = isValidIconTextSize ? specification.iconTextSize : 12
   const volumePath = path.join("/Volumes", volumeName)
@@ -163,8 +160,7 @@ export async function customizeDmg({appPath, artifactPath, volumeName, specifica
       badgeIcon = await packager.generateIcnsFromIcon(badgeIcon)
     }
     settings["badge-icon"] = badgeIcon
-  }
-  else {
+  } else {
     settings.icon = await packager.getResource(specification.icon)
   }
 
@@ -184,21 +180,20 @@ export async function customizeDmg({appPath, artifactPath, volumeName, specifica
         },
       }
     }
-  }
-  else {
+  } else {
     settings.background = specification.background == null ? null : await transformBackgroundFileIfNeed(specification.background, packager.info.tempDirManager)
   }
 
   if (!isEmptyOrSpaces(settings.background)) {
     const size = await getImageSizeUsingSips(settings.background)
-    settings.window = {position: {x: 400, y: Math.round((1440 - size.height) / 2)}, size, ...settings.window}
+    settings.window = { position: { x: 400, y: Math.round((1440 - size.height) / 2) }, size, ...settings.window }
   }
 
   const workspaceRoot = await packager.info.getWorkspaceRoot()
   for (const item of settings.contents ?? []) {
     if (item.type === "file" && item.path && path.isAbsolute(item.path)) {
       if (!item.path.startsWith(workspaceRoot + path.sep) && item.path !== appPath) {
-        log.error({contentPath: item.path}, "dmg.contents path is outside the workspace root — verify this is intentional")
+        log.error({ contentPath: item.path }, "dmg.contents path is outside the workspace root — verify this is intentional")
         throw new InvalidConfigurationError(`dmg.contents path "${item.path}" is outside the workspace root`)
       }
     }
@@ -248,7 +243,7 @@ export async function transformBackgroundFileIfNeed(file: string, tmpDir: TmpDir
 
   const retinaFile = file.replace(/\.([a-z]+)$/, "@2x.$1")
   if (await exists(retinaFile)) {
-    const tiffFile = await tmpDir.getTempFile({suffix: ".tiff"})
+    const tiffFile = await tmpDir.getTempFile({ suffix: ".tiff" })
     await exec("tiffutil", ["-cathidpicheck", file, retinaFile, "-out", tiffFile])
     return tiffFile
   }
@@ -280,11 +275,10 @@ export async function getImageSizeUsingSips(background: string) {
 
     if (key === "pixelWidth") {
       width = value
-    }
-    else if (key === "pixelHeight") {
+    } else if (key === "pixelHeight") {
       height = value
     }
   }
 
-  return {width, height}
+  return { width, height }
 }

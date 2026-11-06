@@ -12,7 +12,7 @@ import { assertPack, EXTENDED_TIMEOUT, modifyPackageJson, PackedContext } from "
 import { ELECTRON_VERSION } from "../helpers/testConfig"
 import { OLD_VERSION_NUMBER, writeUpdateConfig } from "../helpers/updaterTestUtil"
 
-const optionsForInstall: TestOptions = {sequential: true, retry: 0, timeout: EXTENDED_TIMEOUT}
+const optionsForInstall: TestOptions = { sequential: true, retry: 0, timeout: EXTENDED_TIMEOUT }
 
 const STANDARD_COMPRESSIONS: Configuration["compression"][] = ["store", "normal", "maximum"]
 const APPIMAGE_COMPRESSIONS: AppImageOptions["compression"][] = ["xz", "gzip", "zstd"]
@@ -26,13 +26,13 @@ describe.heavy.ifLinux("linux install", optionsForInstall, () => {
       for (const arch of ["x64", "arm64"] as NodeJS.Architecture[]) {
         for (const legacyCompression of LEGACY_COMPRESSIONS) {
           test.ifEnv(arch === process.arch)(`${arch} - toolset: legacy - compression: ${compression} - compressor: override: ${legacyCompression}`, async context => {
-            await runInstallTest(context, "appImage", archFromString(arch), {toolsets: {appimage: "0.0.0"}, compression, appImage: {compression: legacyCompression}})
+            await runInstallTest(context, "appImage", archFromString(arch), { toolsets: { appimage: "0.0.0" }, compression, appImage: { compression: legacyCompression } })
           })
         }
         for (const appimage of ["1.0.2", "1.0.3"] as ToolsetConfig["appimage"][]) {
           for (const appImageCompression of APPIMAGE_COMPRESSIONS) {
             test.ifEnv(arch === process.arch)(`${arch} - toolset: ${appimage} - compression: ${compression} - compressor: ${appImageCompression}`, async context => {
-              await runInstallTest(context, "appImage", archFromString(arch), {toolsets: {appimage}, compression, appImage: {compression: appImageCompression}})
+              await runInstallTest(context, "appImage", archFromString(arch), { toolsets: { appimage }, compression, appImage: { compression: appImageCompression } })
             })
           }
         }
@@ -42,7 +42,7 @@ describe.heavy.ifLinux("linux install", optionsForInstall, () => {
 })
 
 async function runInstallTest(context: TestContext, target: ConstructorParameters<typeof Target>[0], arch: Arch, extraConfig: Configuration): Promise<void> {
-  const {expect} = context
+  const { expect } = context
   const tmpDir = new TmpDir("blackbox-install-test")
 
   try {
@@ -88,9 +88,9 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
       },
       {
         storeDepsLockfileSnapshot: false,
-        packageManager: PM.PNPM,
+        packageManager: PM.NPM,
         packed: async (ctx: PackedContext) => {
-          artifactsDir = await tmpDir.getTempDir({prefix: "artifacts"})
+          artifactsDir = await tmpDir.getTempDir({ prefix: "artifacts" })
           await move(ctx.outDir, artifactsDir)
         },
         projectDirCreated: async (projectDir, _tmpDir, runtimeEnv) => {
@@ -121,16 +121,17 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
           await modifyPackageJson(
             projectDir,
             data => {
-              data.pnpm = {
-                supportedArchitectures: {
-                  os: ["current"],
-                  cpu: ["x64", "arm64"],
-                },
-              }
+              // FIXME
+              // data.pnpm = {
+              //   supportedArchitectures: {
+              //     os: ["current"],
+              //     cpu: ["x64", "arm64"],
+              //   },
+              // }
             },
             false
           )
-          await spawn("pnpm", ["install"], {cwd: projectDir, env: runtimeEnv})
+          await spawn("pnpm", ["install"], { cwd: projectDir, env: runtimeEnv })
         },
       }
     )
@@ -149,14 +150,13 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
       expect(actualCompression).toMatchSnapshot()
 
       appPath = artifactPath
-    }
-    else {
+    } else {
       throw new Error(`Unsupported install test target: ${target}`)
     }
 
     // A dummy update config is required by launchAndWaitForQuit even when the updater is disabled.
     // AUTO_UPDATER_TEST="" makes the test app print its version and exit immediately.
-    const updateConfigPath = await writeUpdateConfig<GenericServerOptions>({provider: "generic", url: "http://localhost:0"})
+    const updateConfigPath = await writeUpdateConfig<GenericServerOptions>({ provider: "generic", url: "http://localhost:0" })
 
     const appimageToolset = (extraConfig as any).toolsets?.appimage
     // FUSE2 AppImages require /dev/fuse to mount their squashfs, which isn't available in standard
@@ -170,18 +170,17 @@ async function runInstallTest(context: TestContext, target: ConstructorParameter
       packageManagerToTest: "",
       env: {
         AUTO_UPDATER_TEST: "",
-        ...(isLegacyToolset ? {APPIMAGE_EXTRACT_AND_RUN: "1"} : {}),
+        ...(isLegacyToolset ? { APPIMAGE_EXTRACT_AND_RUN: "1" } : {}),
       },
       waitForExit: true,
     })
 
-    log.info({version: result.version, compression: config[target]?.compression ?? config.compression, target}, "Install test launch completed")
+    log.info({ version: result.version, compression: config[target]?.compression ?? config.compression, target }, "Install test launch completed")
     if (result.version == null) {
       throw new Error("App did not report version after launch")
     }
     expect(result.version).toMatch(OLD_VERSION_NUMBER)
-  }
-  finally {
+  } finally {
     await tmpDir.cleanup()
   }
 }

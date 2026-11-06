@@ -125,7 +125,7 @@ export function build(options: PackagerOptions & PublishOptions, packager: Packa
 
       for (const newArtifact of newArtifacts) {
         if (buildResult.artifactPaths.includes(newArtifact)) {
-          log.warn({newArtifact}, "skipping publish of artifact, already published")
+          log.warn({ newArtifact }, "skipping publish of artifact, already published")
           continue
         }
         buildResult.artifactPaths.push(newArtifact)
@@ -149,8 +149,7 @@ export function build(options: PackagerOptions & PublishOptions, packager: Packa
     if (isErrorOccurred) {
       publishManager.cancelTasks()
       promise = Promise.resolve(null)
-    }
-    else {
+    } else {
       promise = publishManager.awaitTasks()
     }
 

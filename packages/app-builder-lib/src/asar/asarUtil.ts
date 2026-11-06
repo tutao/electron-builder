@@ -82,9 +82,9 @@ export class AsarPackager {
       if (args[0] === "Ordering file has 100% coverage.") {
         return // no need to log, this means our ordering logic is working correctly
       }
-      log.info({args}, "logging @electron/asar")
+      log.info({ args }, "logging @electron/asar")
     }
-    const {createPackageFromStreams} = await dynamicImport<typeof import("@electron/asar")>("@electron/asar")
+    const { createPackageFromStreams } = await dynamicImport<typeof import("@electron/asar")>("@electron/asar")
     await createPackageFromStreams(this.outFile, streams)
     console.log = consoleLogger
   }
@@ -208,12 +208,12 @@ export class AsarPackager {
     transformedData: string | Buffer | undefined
     isUnpacked: (dir: string, file?: string, stat?: FilterStats) => boolean
   }): Promise<AsarStreamType> {
-    const {isUnpacked, transformedData, file, destination, stat} = options
+    const { isUnpacked, transformedData, file, destination, stat } = options
     const unpacked = isUnpacked(destination, file, stat)
 
     // Handle directories
     if (!stat.isFile() && !stat.isSymbolicLink()) {
-      return {path: destination, unpacked, type: "directory"}
+      return { path: destination, unpacked, type: "directory" }
     }
 
     // Handle transformed data (pre-processed content)
@@ -230,7 +230,7 @@ export class AsarPackager {
           }),
         unpacked,
         type: "file",
-        stat: {mode: stat.mode, size},
+        stat: { mode: stat.mode, size },
       }
     }
 
@@ -246,7 +246,7 @@ export class AsarPackager {
 
     // Handle regular files
     if (!stat.isSymbolicLink()) {
-      return {...baseConfig, type: "file"}
+      return { ...baseConfig, type: "file" }
     }
 
     // Handle symlinks - make relative to source location
@@ -327,7 +327,7 @@ export class AsarPackager {
 
   private async protectSystemAndUnsafePaths(file: string, workspaceRoot: string): Promise<void> {
     const resolved = await resolvePath(file)
-    const logFields = {source: file, realPath: resolved}
+    const logFields = { source: file, realPath: resolved }
 
     const workspace = await resolvePath(workspaceRoot)
 

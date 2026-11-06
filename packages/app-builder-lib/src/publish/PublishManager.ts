@@ -1,8 +1,5 @@
-import { Arch, asArray, AsyncTaskManager, exists, InvalidConfigurationError, log, safeStringifyJson, serializeToYaml } from "builder-util"
-import { CancellationToken, GenericServerOptions, Nullish, PublishConfiguration, } from "builder-util-runtime"
-import { getS3LikeProviderBaseUrl } from "builder-util-runtime/out/publishOptions"
-import { MultiProgress } from "builder-util/src/multiProgress"
-import { UploadTask } from "builder-util/src/uploadTask"
+import { Arch, asArray, AsyncTaskManager, exists, InvalidConfigurationError, log, MultiProgress, safeStringifyJson, serializeToYaml, UploadTask } from "builder-util"
+import { CancellationToken, GenericServerOptions, Nullish, PublishConfiguration } from "builder-util-runtime"
 import _debug from "debug"
 import { PublishContext, Publisher, PublishOptions } from "electron-publish"
 import { writeFile } from "fs/promises"
@@ -24,9 +21,7 @@ function checkOptions(publishPolicy: unknown) {
   if (publishPolicy != null && publishPolicy !== "always" && publishPolicy !== "never") {
     if (typeof publishPolicy === "string") {
       throw new InvalidConfigurationError(
-        `Expected one of "always", "never", but got ${JSON.stringify(
-          publishPolicy
-        )}.\nPlease note that publish configuration should be specified under "config"`
+        `Expected one of "always", "never", but got ${JSON.stringify(publishPolicy)}.\nPlease note that publish configuration should be specified under "config"`
       )
     }
   }
@@ -61,8 +56,7 @@ export class PublishManager implements PublishContext {
         if (!event.targets.some(it => it.name === "dmg" || it.name === "zip")) {
           return
         }
-      }
-      else if (packager.platform === Platform.WINDOWS) {
+      } else if (packager.platform === Platform.WINDOWS) {
         if (!event.targets.some(it => isSuitableWindowsTarget(it))) {
           return
         }
@@ -78,8 +72,7 @@ export class PublishManager implements PublishContext {
       const publishConfiguration = event.publishConfig
       if (publishConfiguration == null) {
         this.taskManager.addTask(this.artifactCreatedWithoutExplicitPublishConfig(event))
-      }
-      else if (this.isPublish) {
+      } else if (this.isPublish) {
         if (debug.enabled) {
           debug(`artifactCreated (isPublish: ${this.isPublish}): ${safeStringifyJson(event, new Set(["packager"]))},\n  publishConfig: ${safeStringifyJson(publishConfiguration)}`)
         }
@@ -134,7 +127,7 @@ export class PublishManager implements PublishContext {
     const eventFile = event.file
     if (publishConfigs == null) {
       if (this.isPublish) {
-        log.debug({file: eventFile, reason: "no publish configs"}, "not published")
+        log.debug({ file: eventFile, reason: "no publish configs" }, "not published")
       }
       return
     }
@@ -142,7 +135,7 @@ export class PublishManager implements PublishContext {
     if (this.isPublish) {
       for (const publishConfig of publishConfigs) {
         if (this.cancellationToken.cancelled) {
-          log.debug({file: event.file, reason: "cancelled"}, "not published")
+          log.debug({ file: event.file, reason: "cancelled" }, "not published")
           break
         }
 
@@ -168,7 +161,7 @@ export class PublishManager implements PublishContext {
     if (publisher == null) {
       publisher = await createPublisher(this, appInfo.version, publishConfig, this.publishOptions, this.packager)
       this.nameToPublisher.set(providerCacheKey, publisher)
-      log.info({publisher: publisher!.toString()}, "publishing")
+      log.info({ publisher: publisher!.toString() }, "publishing")
     }
     return publisher
   }
@@ -275,7 +268,7 @@ async function requireProviderClass(provider: string, packager: Packager): Promi
           return module.default || module
         }
       }
-      log.error({path: log.filePath(packager.buildResourcesDir), template, extensionsChecked: extensions}, "unable to find publish provider in build resources")
+      log.error({ path: log.filePath(packager.buildResourcesDir), template, extensionsChecked: extensions }, "unable to find publish provider in build resources")
       throw new InvalidConfigurationError(`Cannot find module for publisher "${provider}" with any extension: ${extensions.join(", ")}`)
     }
   }
@@ -289,15 +282,9 @@ export function computeDownloadUrl(publishConfiguration: PublishConfiguration, f
     }
 
     const baseUrl = parseUrl(baseUrlString)
-    return url.format({...baseUrl, pathname: path.posix.resolve(baseUrl?.pathname || "/", encodeURI(fileName))})
+    return url.format({ ...baseUrl, pathname: path.posix.resolve(baseUrl?.pathname || "/", encodeURI(fileName)) })
   }
-
-  const baseUrl = getS3LikeProviderBaseUrl(publishConfiguration)
-
-  if (fileName == null) {
-    return baseUrl
-  }
-  return `${baseUrl}/${encodeURI(fileName)}`
+  throw new Error(`Unsupported provider ${publishConfiguration.provider}`)
 }
 
 export async function getPublishConfigs(
@@ -347,7 +334,7 @@ async function resolvePublishConfigurations(
 
   debug(`Explicit publish provider: ${safeStringifyJson(publishers)}`)
   return (await Promise.all(
-    asArray(publishers).map(it => getResolvedPublishConfig(platformPackager, packager, typeof it === "string" ? {provider: it} : it, arch, errorIfCannot))
+    asArray(publishers).map(it => getResolvedPublishConfig(platformPackager, packager, typeof it === "string" ? { provider: it } : it, arch, errorIfCannot))
   )) as PublishConfiguration[]
 }
 
@@ -380,7 +367,7 @@ async function getResolvedPublishConfig(
   arch: Arch | null,
   errorIfCannot: boolean
 ): Promise<PublishConfiguration | null> {
-  options = {...options}
+  options = { ...options }
   expandPublishConfig(options, platformPackager, packager, arch)
 
   let channelFromAppVersion: string | null = null

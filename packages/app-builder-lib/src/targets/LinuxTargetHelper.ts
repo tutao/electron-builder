@@ -93,7 +93,7 @@ export class LinuxTargetHelper {
     const file = await this.packager.getTempFile(".xml")
     await outputFile(
       file,
-      "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">\n" + items.join("\n") + "\n</mime-info>"
+      '<?xml version="1.0" encoding="utf-8"?>\n<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">\n' + items.join("\n") + "\n</mime-info>"
     )
     return file
   }
@@ -101,7 +101,7 @@ export class LinuxTargetHelper {
   // must be name without spaces and other special characters, but not product name used
   private async computeDesktopIcons(): Promise<Array<IconInfo>> {
     const packager = this.packager
-    const {platformSpecificBuildOptions, config} = packager
+    const { platformSpecificBuildOptions, config } = packager
 
     const sources = [platformSpecificBuildOptions.icon, config.mac?.icon ?? config.icon].filter(str => !!str) as string[]
 
@@ -126,7 +126,7 @@ export class LinuxTargetHelper {
 
   getSanitizedVersion(target: string) {
     const {
-      appInfo: {version},
+      appInfo: { version },
     } = this.packager
     switch (target) {
       case "pacman":
@@ -261,14 +261,14 @@ export class LinuxTargetHelper {
       if (category == null) {
         // https://github.com/develar/onshape-desktop-shell/issues/48
         if (macCategory != null) {
-          log.warn({macCategory}, "cannot map macOS category to Linux. If possible mapping is known for you, please file issue to add it.")
+          log.warn({ macCategory }, "cannot map macOS category to Linux. If possible mapping is known for you, please file issue to add it.")
         }
         log.warn(
           {
             reason: "linux.category is not set and cannot map from macOS",
             docs: "https://www.electron.build/linux",
           },
-          "application Linux category is set to default \"Utility\""
+          'application Linux category is set to default "Utility"'
         )
         category = "Utility"
       }

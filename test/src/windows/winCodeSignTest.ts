@@ -1,16 +1,15 @@
-import { parseDn } from "builder-util-runtime"
-import { ToolInfo, WinPackager, WindowsSignToolManager } from "app-builder-lib"
+import { ToolInfo, WindowsSignToolManager, WinPackager } from "app-builder-lib"
 import { CustomWindowsSign } from "app-builder-lib/out/codeSign/windowsSignToolManager"
 import { Configuration, ToolsetConfig } from "app-builder-lib/out/configuration"
 import { AsyncTaskManager } from "builder-util"
-import { Arch, DIR_TARGET, Platform, Target } from "electron-builder"
-import { Packager } from "electron-builder"
+import { parseDn } from "builder-util-runtime"
+import { Arch, DIR_TARGET, Packager, Platform, Target } from "electron-builder"
 import { outputFile } from "fs-extra"
 import { load } from "js-yaml"
 import * as path from "path"
+import { ExpectStatic } from "vitest"
 import { CheckingWinPackager } from "../helpers/CheckingPackager"
 import { app, appThrows } from "../helpers/packTester"
-import { ExpectStatic } from "vitest"
 
 type SignIfResult = { file: string; ok: boolean }
 
@@ -256,30 +255,6 @@ for (const winCodeSign of winCodeSignVersions) {
         },
         {},
         error => expect(error.message).toContain("Please provide a valid path to the Electron zip file, cache directory, or electron build directory.")
-      ))
-
-    test.skip("azure signing without credentials", ({ expect }) =>
-      appThrows(
-        expect,
-        {
-          targets: windowsDirTarget,
-          config: {
-            forceCodeSigning: true,
-            toolsets: {
-              winCodeSign,
-            },
-            win: {
-              azureSignOptions: {
-                publisherName: "test",
-                endpoint: "https://weu.codesigning.azure.net/",
-                certificateProfileName: "profilenamehere",
-                codeSigningAccountName: "codesigningnamehere",
-              },
-            },
-          },
-        },
-        {},
-        error => expect(error.message).toContain("Unable to find valid azure env field AZURE_TENANT_ID for signing.")
       ))
 
     test.ifNotWindows("win code sign using pwsh", ({ expect }) =>

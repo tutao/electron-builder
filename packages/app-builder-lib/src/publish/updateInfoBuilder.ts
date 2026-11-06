@@ -14,7 +14,7 @@ import { hashFile } from "../util/hash"
 import { computeDownloadUrl, getPublishConfigsForUpdateInfo } from "./PublishManager"
 
 async function getReleaseInfo(packager: PlatformPackager<any>) {
-  const releaseInfo: ReleaseInfo = {...(packager.platformSpecificBuildOptions.releaseInfo || packager.config.releaseInfo)}
+  const releaseInfo: ReleaseInfo = { ...(packager.platformSpecificBuildOptions.releaseInfo || packager.config.releaseInfo) }
   if (releaseInfo.releaseNotes == null) {
     const releaseNotesFile = await packager.getResource(
       releaseInfo.releaseNotesFile,
@@ -155,7 +155,7 @@ async function createUpdateInfo(version: string, event: ArtifactCreated, release
   const customUpdateInfo = event.updateInfo
   const url = path.basename(event.file)
   const sha512 = (customUpdateInfo == null ? null : customUpdateInfo.sha512) || (await hashFile(event.file))
-  const files = [{url, sha512}]
+  const files = [{ url, sha512 }]
   const result: UpdateInfo = {
     // @ts-ignore
     version,
@@ -256,7 +256,7 @@ async function writeOldMacInfo(
         releaseDate: new Date().toISOString(),
         url: computeDownloadUrl(publishConfig, packager.generateName2("zip", "mac", isGitHub), packager),
       },
-      {spaces: 2}
+      { spaces: 2 }
     )
 
     await packager.info.emitArtifactCreated({

@@ -9,12 +9,12 @@ export function registerBlackboxLinuxTests(toolset: Required<Pick<ToolsetConfig,
   const appimage = toolset.appimage
   describe(`appimage tool: ${appimage}`, optionsForFlakyE2E, () => {
     test.ifEnv(process.env.RUN_APP_IMAGE_TEST === "true" && process.arch === "arm64")("AppImage - arm64", async (context: TestContext) => {
-      await runTest(context, "AppImage", "appimage", Arch.arm64, {appimage})
+      await runTest(context, "AppImage", "appimage", Arch.arm64, { appimage })
     })
 
     // only works on x64, so this will fail on arm64 macs due to arch mismatch
     test.ifEnv(process.env.RUN_APP_IMAGE_TEST === "true" && process.arch === "x64")("AppImage - x64", async (context: TestContext) => {
-      await runTest(context, "AppImage", "appimage", Arch.x64, {appimage})
+      await runTest(context, "AppImage", "appimage", Arch.x64, { appimage })
     })
   })
 }
@@ -22,9 +22,9 @@ export function registerBlackboxLinuxTests(toolset: Required<Pick<ToolsetConfig,
 const packageManagerMap: {
   [key: string]: { pms: string[]; target: string }
 } = {
-  fedora: {pms: ["zypper", "dnf", "yum", "rpm"], target: "rpm"},
-  debian: {pms: ["apt", "dpkg"], target: "deb"},
-  arch: {pms: ["pacman"], target: "pacman"},
+  fedora: { pms: ["zypper", "dnf", "yum", "rpm"], target: "rpm" },
+  debian: { pms: ["apt", "dpkg"], target: "deb" },
+  arch: { pms: ["pacman"], target: "pacman" },
 }
 
 const determineEnvironment = (distro: string) => {
@@ -33,7 +33,7 @@ const determineEnvironment = (distro: string) => {
 
 export function registerBlackboxLinuxPackageManagerTests(): void {
   for (const distro in packageManagerMap) {
-    const {pms, target} = packageManagerMap[distro as keyof typeof packageManagerMap]
+    const { pms, target } = packageManagerMap[distro as keyof typeof packageManagerMap]
     for (const pm of pms) {
       test(`${distro} - (${pm})`, optionsForFlakyE2E, async (context: TestContext) => {
         if (!determineEnvironment(distro)) {

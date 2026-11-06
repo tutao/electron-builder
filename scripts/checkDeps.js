@@ -4,7 +4,6 @@ const fs = require("fs-extra")
 const path = require("path")
 const knownUnusedDevDependencies = new Set([
   "@babel/plugin-transform-modules-commonjs", // Not sure what this is used for, but keeping just in case (for now)
-  "changesets-changelog-clean", // Used in package.json CI/CD logic
   // Eslint config doesn't get scanned by depCheck
   "@stylistic/eslint-plugin",
   "@eslint/js",

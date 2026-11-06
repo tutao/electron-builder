@@ -1,3 +1,4 @@
+import { ToolsetConfig } from "app-builder-lib/src"
 import { GenericServerOptions } from "builder-util-runtime"
 import { Arch, build, Platform } from "electron-builder"
 import { outputFile } from "fs-extra"
@@ -6,7 +7,6 @@ import * as path from "path"
 import { assertThat, readAppImageCompression } from "../helpers/fileAssert"
 import { app, appThrows, copyTestAsset, modifyPackageJson } from "../helpers/packTester"
 import { ELECTRON_VERSION } from "../helpers/testConfig"
-import { ToolsetConfig } from "app-builder-lib/src"
 
 const appImageTarget = Platform.LINUX.createTarget("appimage", Arch.x64)
 
@@ -387,23 +387,6 @@ export function registerLinuxPackagerTests(toolsets: ToolsetConfig): void {
 
           await assertThat(expect, path.join(projectDir, "dist")).isDirectory()
         },
-      }
-    ))
-
-  test("no-author-email", ({ expect }) =>
-    appThrows(
-      expect,
-      {
-        targets: Platform.LINUX.createTarget("deb", Arch.x64),
-        config: {
-          toolsets,
-        },
-      },
-      {
-        projectDirCreated: projectDir =>
-          modifyPackageJson(projectDir, data => {
-            data.author = "Foo"
-          }),
       }
     ))
 

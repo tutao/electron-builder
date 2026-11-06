@@ -1,9 +1,15 @@
 import * as get from "@electron/get"
-import { ElectronDownloadCacheMode, ElectronDownloadRequest, ElectronDownloadRequestOptions, ElectronPlatformArtifactDetails, GotDownloaderOptions, MirrorOptions } from "@electron/get"
-import { buildGotProxyAgent, exec, exists, log, PADDING, parseValidEnvVarUrl, sanitizeDirPath, to7zaOutputSwitch } from "builder-util"
+import {
+  ElectronDownloadCacheMode,
+  ElectronDownloadRequest,
+  ElectronDownloadRequestOptions,
+  ElectronPlatformArtifactDetails,
+  GotDownloaderOptions,
+  MirrorOptions,
+} from "@electron/get"
+import type { ProgressBar } from "builder-util"
+import { buildGotProxyAgent, exec, exists, log, MultiProgress, PADDING, parseValidEnvVarUrl, sanitizeDirPath, to7zaOutputSwitch } from "builder-util"
 import { HttpError, retry } from "builder-util-runtime"
-import { MultiProgress } from "builder-util/src/multiProgress"
-import type { ProgressBar } from "builder-util/src/progress"
 import * as crypto from "crypto"
 import { createReadStream, createWriteStream } from "fs"
 import * as fs from "fs/promises"
@@ -85,7 +91,7 @@ function hashUrlSafe(input: string, length = 6): string {
 }
 
 export function getCacheDirectory(options: { isAvoidSystemOnWindows?: boolean; allowEnvVarOverride: boolean }): string {
-  const {isAvoidSystemOnWindows = true, allowEnvVarOverride} = options
+  const { isAvoidSystemOnWindows = true, allowEnvVarOverride } = options
   const env = process.env.ELECTRON_BUILDER_CACHE?.trim()
   if (allowEnvVarOverride && env && path.parse(env).root) {
     return env
@@ -118,7 +124,7 @@ function resolveCacheMode(): ElectronDownloadCacheMode {
   const cacheOverride = process.env[varName]?.trim()
   if (cacheOverride && Number(cacheOverride) in ElectronDownloadCacheMode) {
     const mode = Number(cacheOverride) as ElectronDownloadCacheMode
-    log.debug({mode}, `cache mode overridden via env var ${varName}`)
+    log.debug({ mode }, `cache mode overridden via env var ${varName}`)
     return mode
   }
   return ElectronDownloadCacheMode.ReadWrite
@@ -157,7 +163,7 @@ async function extractZipStreaming(file: string, dir: string): Promise<void> {
   // including when the loop exits early due to a thrown error.
   const readStream = createReadStream(file)
   try {
-    const entries = readStream.pipe(unzipper.Parse({forceStream: true}))
+    const entries = readStream.pipe(unzipper.Parse({ forceStream: true }))
     for await (const entry of entries as AsyncIterable<unzipper.Entry>) {
       const destPath = path.resolve(dir, entry.path)
       if (!isSafeExtractPath(destPath, dir)) {
@@ -173,23 +179,20 @@ async function extractZipStreaming(file: string, dir: string): Promise<void> {
         if (!isSafeExtractPath(resolvedTarget, dir)) {
           throw new Error(`Symlink target escapes extraction dir: ${target}`)
         }
-        await fs.mkdir(path.dirname(destPath), {recursive: true})
+        await fs.mkdir(path.dirname(destPath), { recursive: true })
         await fs.symlink(target, destPath)
-      }
-      else if (entry.type === "Directory") {
-        await fs.mkdir(destPath, {recursive: true})
+      } else if (entry.type === "Directory") {
+        await fs.mkdir(destPath, { recursive: true })
         entry.autodrain()
-      }
-      else {
-        await fs.mkdir(path.dirname(destPath), {recursive: true})
+      } else {
+        await fs.mkdir(path.dirname(destPath), { recursive: true })
         await pipeline(entry, createWriteStream(destPath))
         if (mode > 0) {
           await fs.chmod(destPath, mode & 0o7777)
         }
       }
     }
-  }
-  finally {
+  } finally {
     readStream.destroy()
   }
 }
@@ -217,101 +220,93 @@ export async function moveDirAtomic(src: string, dest: string): Promise<void> {
       backoff: 250,
       shouldRetry: (err: any) => {
         if (TRANSIENT_RENAME_CODES.has(err.code ?? "")) {
-          log.warn({src: log.filePath(src), dest: log.filePath(dest), code: err.code}, "directory rename failed, retrying")
+          log.warn({ src: log.filePath(src), dest: log.filePath(dest), code: err.code }, "directory rename failed, retrying")
           return true
         }
         return false
       },
     })
     return
-  }
-  catch (err: any) {
+  } catch (err: any) {
     lastErr = err
     if (!TRANSIENT_RENAME_CODES.has(err.code ?? "")) {
       throw err
     }
   }
   // All rename retries exhausted on a transient error — fall back to copy + delete
-  log.warn({src: log.filePath(src), dest: log.filePath(dest)}, "directory rename failed repeatedly; falling back to copy+delete")
+  log.warn({ src: log.filePath(src), dest: log.filePath(dest) }, "directory rename failed repeatedly; falling back to copy+delete")
   try {
-    await fs.cp(src, dest, {recursive: true})
-    await fs.rm(src, {recursive: true, force: true})
-  }
-  catch (err: any) {
+    await fs.cp(src, dest, { recursive: true })
+    await fs.rm(src, { recursive: true, force: true })
+  } catch (err: any) {
     throw new Error(`Failed to move directory from ${src} to ${dest}: ${err.message}${lastErr ? `; last rename error: ${lastErr.message}` : ""}`)
   }
 }
 
 export async function extractArchive(file: string, dir: string) {
   const tmpDir = `${dir}.tmp`
-  await fs.mkdir(tmpDir, {recursive: true})
+  await fs.mkdir(tmpDir, { recursive: true })
 
   const release = await lockfile.lock(tmpDir, {
     // 100 retries (not 15) so concurrent callers wait out a slow first extraction instead of failing
     // with ELOCKED; the update heartbeat keeps an in-progress holder's lock fresh against `stale`.
-    retries: {retries: 100, minTimeout: 1000, maxTimeout: 5000},
+    retries: { retries: 100, minTimeout: 1000, maxTimeout: 5000 },
     stale: 120000, // Increased from 60s to allow long-running extractions
   })
 
   try {
     // rm + mkdir happen AFTER acquiring the lock so no concurrent caller can clear our tmpDir mid-extraction
-    await fs.rm(tmpDir, {recursive: true, force: true})
-    await fs.mkdir(tmpDir, {recursive: true})
+    await fs.rm(tmpDir, { recursive: true, force: true })
+    await fs.mkdir(tmpDir, { recursive: true })
 
     // Guard against the transient window in @electron/get's non-atomic putFileInCache (remove → move).
     // A concurrent worker may have deleted and not yet replaced the source archive; wait briefly for it.
     for (let i = 0; !(await exists(file)); i++) {
       if (i >= 4) {
-        throw Object.assign(new Error(`Source archive not found after retries: ${file}`), {code: "ENOENT", path: file})
+        throw Object.assign(new Error(`Source archive not found after retries: ${file}`), { code: "ENOENT", path: file })
       }
-      log.warn({file, attempt: i + 1}, "source archive transiently missing, retrying")
+      log.warn({ file, attempt: i + 1 }, "source archive transiently missing, retrying")
       await new Promise(r => setTimeout(r, 300 * (i + 1)))
     }
 
     if (file.endsWith(".tar.gz") || file.endsWith(".tgz")) {
-      await tar.extract({file, cwd: tmpDir, strip: 1})
-    }
-    else if (file.endsWith(".tar.xz") || file.endsWith(".txz") || file.endsWith(".tar.7z")) {
+      await tar.extract({ file, cwd: tmpDir, strip: 1 })
+    } else if (file.endsWith(".tar.xz") || file.endsWith(".txz") || file.endsWith(".tar.7z")) {
       // Compressed tarballs node-tar cannot decompress itself (xz, 7z): use 7za to strip the outer
       // compression layer into a .tar, then extract that tar.
       // Note: the .tar.7z check MUST stay ahead of the plain .7z branch below, otherwise only the outer
       // 7z layer is removed and the inner tar is left behind as-is (see https://github.com/electron-userland/electron-builder/issues/10002).
       const cmd7za = await getPath7za()
       const decompressOutDir = `${tmpDir}.decompress`
-      await fs.rm(decompressOutDir, {recursive: true, force: true})
-      await fs.mkdir(decompressOutDir, {recursive: true})
+      await fs.rm(decompressOutDir, { recursive: true, force: true })
+      await fs.mkdir(decompressOutDir, { recursive: true })
       try {
         await exec(cmd7za, ["x", "-bd", file, to7zaOutputSwitch(sanitizeDirPath(decompressOutDir)), "-y"])
         const innerTar = (await fs.readdir(decompressOutDir)).find(f => f.endsWith(".tar"))
         if (innerTar == null) {
           throw new Error(`decompression of ${path.basename(file)} produced no .tar archive`)
         }
-        await tar.extract({file: path.join(decompressOutDir, innerTar), cwd: tmpDir, strip: 1})
+        await tar.extract({ file: path.join(decompressOutDir, innerTar), cwd: tmpDir, strip: 1 })
+      } finally {
+        await fs.rm(decompressOutDir, { recursive: true, force: true })
       }
-      finally {
-        await fs.rm(decompressOutDir, {recursive: true, force: true})
-      }
-    }
-    else if (file.endsWith(".zip")) {
+    } else if (file.endsWith(".zip")) {
       await extractZipStreaming(file, tmpDir)
-    }
-    else if (file.endsWith(".7z")) {
+    } else if (file.endsWith(".7z")) {
       const cmd7za = await getPath7za()
       try {
         await exec(cmd7za, ["x", "-bd", file, to7zaOutputSwitch(sanitizeDirPath(tmpDir)), "-y"])
-      }
-      catch (e: any) {
+      } catch (e: any) {
         // Check if extraction actually failed or just had benign warnings
         const files = await fs.readdir(tmpDir)
         if (files.length === 0) {
-          log.warn({file: log.filePath(file), tmpDir: log.filePath(tmpDir), error: e.message}, "7z extraction produced no output")
+          log.warn({ file: log.filePath(file), tmpDir: log.filePath(tmpDir), error: e.message }, "7z extraction produced no output")
           throw new Error(`7z extraction failed for ${file}: ${e.message}`)
         }
         // If files were extracted despite the error, log and continue
-        log.warn({error: e.message, filesExtracted: files.length}, "7z reported error but extracted files")
+        log.warn({ error: e.message, filesExtracted: files.length }, "7z reported error but extracted files")
       }
-    }
-    else {
+    } else {
       throw new Error(`Unsupported archive format: ${path.basename(file)}`)
     }
 
@@ -321,11 +316,10 @@ export async function extractArchive(file: string, dir: string) {
       throw new Error(`Extraction of ${path.basename(file)} produced no files`)
     }
 
-    await fs.rm(dir, {recursive: true, force: true})
+    await fs.rm(dir, { recursive: true, force: true })
     await moveDirAtomic(tmpDir, dir)
-  }
-  finally {
-    await release().catch(err => log.warn({err}, "failed to release lockfile"))
+  } finally {
+    await release().catch(err => log.warn({ err }, "failed to release lockfile"))
   }
 }
 
@@ -334,7 +328,7 @@ async function downloadArtifactToFile(config: Parameters<typeof get.downloadArti
   // non-atomic putFileInCache (remove + move) from racing with a concurrent reader.
   const artifactLockKey = crypto
     .createHash("sha256")
-    .update(JSON.stringify({v: config.version, p: (config as any).platform, a: (config as any).arch, n: (config as any).artifactName}))
+    .update(JSON.stringify({ v: config.version, p: (config as any).platform, a: (config as any).arch, n: (config as any).artifactName }))
     .digest("hex")
     .slice(0, 20)
   const artifactLockPath = path.join(os.tmpdir(), `eb-dl-${artifactLockKey}.lock`)
@@ -342,15 +336,15 @@ async function downloadArtifactToFile(config: Parameters<typeof get.downloadArti
   // matches the other toolset locks; stale (10min) + proper-lockfile's update heartbeat keep a live
   // downloader's lock fresh so the longer wait never falsely steals an in-progress download.
   const releaseArtifactLock = await lockfile.lock(artifactLockPath, {
-    retries: {retries: 100, minTimeout: 500, maxTimeout: 5000},
+    retries: { retries: 100, minTimeout: 500, maxTimeout: 5000 },
     stale: 600_000,
     realpath: false,
   })
   let lastLoggedMilestone = -1
-  const state: { bar: ProgressBar | undefined } = {bar: undefined}
+  const state: { bar: ProgressBar | undefined } = { bar: undefined }
 
   const downloadOptions: GotDownloaderOptions = {
-    timeout: {request: 10 * 60 * 1000}, // prevent indefinite hang on stalled connections
+    timeout: { request: 10 * 60 * 1000 }, // prevent indefinite hang on stalled connections
     ...config.downloadOptions,
     agent: config.downloadOptions?.agent ?? buildGotProxyAgent(),
     getProgressCallback: info => {
@@ -362,26 +356,25 @@ async function downloadArtifactToFile(config: Parameters<typeof get.downloadArti
         return Promise.resolve()
       }
       if (!state.bar && process.stdout.isTTY) {
-        log.info({label}, "downloading")
-        state.bar = new MultiProgress().createBar(`${" ".repeat(PADDING + 2)}[:bar] :percent | ${label}`, {total: 100})
+        log.info({ label }, "downloading")
+        state.bar = new MultiProgress().createBar(`${" ".repeat(PADDING + 2)}[:bar] :percent | ${label}`, { total: 100 })
       }
       const pct = info.percent != null ? Math.floor(info.percent * 100) : 0
       if (state.bar) {
         state.bar.update(pct)
-      }
-      else {
+      } else {
         // log every 25% milestone for non-TTY environments (e.g. CI logs) to provide some visibility into download progress without overwhelming logs with too many updates
         const percentCompleted = info.transferred && info.total ? Math.floor((info.transferred / info.total) * 100) : Math.floor(pct / 25) * 25
         if (percentCompleted > lastLoggedMilestone && percentCompleted > 0) {
           lastLoggedMilestone = percentCompleted
-          log.info({label, progress: `${percentCompleted}%`}, percentCompleted !== 100 ? "downloading" : "downloaded")
+          log.info({ label, progress: `${percentCompleted}%` }, percentCompleted !== 100 ? "downloading" : "downloaded")
         }
       }
       return Promise.resolve()
     },
   }
 
-  const configWithProgress = {...config, downloadOptions}
+  const configWithProgress = { ...config, downloadOptions }
   try {
     let filePath: string
     try {
@@ -399,28 +392,25 @@ async function downloadArtifactToFile(config: Parameters<typeof get.downloadArti
           return typeof e?.code === "string" && ["ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EPIPE", "ENOENT"].includes(e.code)
         },
       })
-    }
-    catch (err) {
+    } catch (err) {
       if (typeof (err as any)?.message === "string" && (err as any).message.includes("dest already exists")) {
         filePath = await get.downloadArtifact(configWithProgress)
-      }
-      else {
+      } else {
         throw err
       }
     }
     if (!(await exists(filePath))) {
-      log.warn({filePath, label}, "cached artifact missing from disk; retrying with cache write")
-      filePath = await get.downloadArtifact({...configWithProgress, cacheMode: ElectronDownloadCacheMode.WriteOnly})
+      log.warn({ filePath, label }, "cached artifact missing from disk; retrying with cache write")
+      filePath = await get.downloadArtifact({ ...configWithProgress, cacheMode: ElectronDownloadCacheMode.WriteOnly })
     }
     if (!state.bar && lastLoggedMilestone === -1) {
-      log.info({label}, "using cached artifact")
+      log.info({ label }, "using cached artifact")
     }
     return filePath
-  }
-  finally {
+  } finally {
     state.bar?.update(100)
     state.bar?.terminate()
-    await releaseArtifactLock().catch(err => log.warn({err}, "failed to release artifact download lock"))
+    await releaseArtifactLock().catch(err => log.warn({ err }, "failed to release artifact download lock"))
   }
 }
 
@@ -441,15 +431,15 @@ export type ExpectedChecksum = {
 /** @internal exported for unit testing */
 export function parseExpectedChecksum(filename: string, value: string): ExpectedChecksum {
   if (SHA256_HEX_RE.test(value)) {
-    return {algorithm: "sha256", encoding: "hex", value}
+    return { algorithm: "sha256", encoding: "hex", value }
   }
   if (SHA512_BASE64_RE.test(value)) {
-    return {algorithm: "sha512", encoding: "base64", value}
+    return { algorithm: "sha512", encoding: "base64", value }
   }
   throw new Error(
     `Unrecognized checksum format for "${filename}": "${value}". ` +
-    `Accepted formats: 64-character SHA-256 hex (e.g. "shasum -a 256 <file>") or ` +
-    `88-character base64-encoded SHA-512 (e.g. "openssl dgst -sha512 -binary <file> | openssl base64 -A")`
+      `Accepted formats: 64-character SHA-256 hex (e.g. "shasum -a 256 <file>") or ` +
+      `88-character base64-encoded SHA-512 (e.g. "openssl dgst -sha512 -binary <file> | openssl base64 -A")`
   )
 }
 
@@ -470,12 +460,12 @@ function hashFile(file: string, algorithm: ExpectedChecksum["algorithm"], encodi
 async function verifyDownloadedArchive(file: string, label: string, expected: ExpectedChecksum): Promise<void> {
   const actual = await hashFile(file, expected.algorithm, expected.encoding)
   if (actual !== expected.value) {
-    await fs.rm(file, {force: true}).catch(() => {})
+    await fs.rm(file, { force: true }).catch(() => {})
     throw new Error(
       `${expected.algorithm} checksum mismatch for ${label}: expected "${expected.value}" but downloaded file is "${actual}". The corrupted download has been removed.`
     )
   }
-  log.debug({file: label, algorithm: expected.algorithm}, "checksum verified")
+  log.debug({ file: label, algorithm: expected.algorithm }, "checksum verified")
 }
 
 /**
@@ -496,12 +486,12 @@ async function resolveFromArchiveCache(archiveCachePath: string, label: string, 
   if (expected) {
     const hash = await hashFile(archiveCachePath, expected.algorithm, expected.encoding)
     if (hash !== expected.value) {
-      log.warn({file: label, archiveCachePath}, "cached archive checksum mismatch — removing and re-downloading")
+      log.warn({ file: label, archiveCachePath }, "cached archive checksum mismatch — removing and re-downloading")
       await fs.rm(archiveCachePath).catch(() => {})
       return null
     }
   }
-  log.debug({file: label, archiveCachePath}, "using cached archive — skipping download")
+  log.debug({ file: label, archiveCachePath }, "using cached archive — skipping download")
   return archiveCachePath
 }
 
@@ -511,11 +501,10 @@ async function resolveFromArchiveCache(archiveCachePath: string, label: string, 
  */
 async function persistToArchiveCache(sourcePath: string, archiveCachePath: string): Promise<void> {
   try {
-    await fs.mkdir(path.dirname(archiveCachePath), {recursive: true})
+    await fs.mkdir(path.dirname(archiveCachePath), { recursive: true })
     await fs.copyFile(sourcePath, archiveCachePath)
-  }
-  catch (err) {
-    log.warn({err, archiveCachePath}, "failed to persist archive to cache — will re-download next time")
+  } catch (err) {
+    log.warn({ err, archiveCachePath }, "failed to persist archive to cache — will re-download next time")
   }
 }
 
@@ -531,7 +520,7 @@ async function downloadAndExtract(
   archiveCachePath?: string,
   expectedChecksum?: ExpectedChecksum
 ): Promise<string> {
-  await fs.mkdir(extractDir, {recursive: true})
+  await fs.mkdir(extractDir, { recursive: true })
 
   // Pre-lock fast path: only short-circuit for a definitively complete and valid cache.
   // Do NOT clean up here — concurrent processes could race to delete under each other.
@@ -539,7 +528,7 @@ async function downloadAndExtract(
   if (stateData?.state === CacheState.complete) {
     const isValid = await validateCacheDirectory(extractDir, stateData.fileCount)
     if (isValid) {
-      log.debug({file: label, path: extractDir}, "using cached artifact - cache valid")
+      log.debug({ file: label, path: extractDir }, "using cached artifact - cache valid")
       return extractDir
     }
   }
@@ -550,7 +539,7 @@ async function downloadAndExtract(
   // patience of withToolsetLock. proper-lockfile's update heartbeat keeps a live holder's lock fresh,
   // so increasing waiter retries never falsely steals an in-progress extraction.
   const release = await lockfile.lock(extractDir, {
-    retries: {retries: 100, minTimeout: 1000, maxTimeout: 5000},
+    retries: { retries: 100, minTimeout: 1000, maxTimeout: 5000 },
     stale: 120000,
   })
   let downloadedFile: string | null = null
@@ -560,18 +549,17 @@ async function downloadAndExtract(
     if (stateDataAfterLock?.state === CacheState.complete) {
       const isValid = await validateCacheDirectory(extractDir, stateDataAfterLock.fileCount)
       if (isValid) {
-        log.debug({file: label, path: extractDir}, "using cached artifact - skipping download/extract")
+        log.debug({ file: label, path: extractDir }, "using cached artifact - skipping download/extract")
         return extractDir
       }
-      log.warn({extractDir}, "Cache marked complete but files invalid, clearing")
-    }
-    else if (stateDataAfterLock?.state === CacheState.corrupted) {
-      log.warn({extractDir}, "Corrupted cache detected, cleaning up and re-extracting")
+      log.warn({ extractDir }, "Cache marked complete but files invalid, clearing")
+    } else if (stateDataAfterLock?.state === CacheState.corrupted) {
+      log.warn({ extractDir }, "Corrupted cache detected, cleaning up and re-extracting")
     }
 
     // Cleanup inside the lock — skip lock files since we currently hold them
-    await cleanupCacheDirectory(extractDir, {skipLockFiles: true})
-    await fs.mkdir(extractDir, {recursive: true})
+    await cleanupCacheDirectory(extractDir, { skipLockFiles: true })
+    await fs.mkdir(extractDir, { recursive: true })
 
     // Check electron-builder's own archive cache before touching @electron/get.
     // The cache lives alongside the extract dir: <cacheDir>/<releaseName>/<filename>.
@@ -582,7 +570,7 @@ async function downloadAndExtract(
     }
 
     if (!downloadedFile) {
-      log.debug({file: label}, "downloading")
+      log.debug({ file: label }, "downloading")
       downloadedFile = await downloadArtifactToFile(config, label)
       if (!downloadedFile) {
         throw new Error(`Failed to download artifact: ${label}`)
@@ -609,14 +597,13 @@ async function downloadAndExtract(
     await extractArchive(downloadedFile, extractDir)
 
     // Compute metadata with a full recursive walk now that tmpDir has been renamed to extractDir
-    const {fileCount, extractedSize} = await computeCacheMetadata(extractDir)
+    const { fileCount, extractedSize } = await computeCacheMetadata(extractDir)
 
     // Write complete state with metadata BEFORE releasing the lock; throwOnError=true so a
     // failed write (disk full, permissions) propagates instead of silently producing a no-op cache
-    await writeCacheState(extractDir, CacheState.complete, {fileCount, extractedSize}, true)
-  }
-  finally {
-    await release().catch(err => log.warn({err}, "failed to release lockfile"))
+    await writeCacheState(extractDir, CacheState.complete, { fileCount, extractedSize }, true)
+  } finally {
+    await release().catch(err => log.warn({ err }, "failed to release lockfile"))
   }
   return extractDir
 }
@@ -634,7 +621,7 @@ export async function downloadBuilderToolset(options: {
   githubOrgRepo?: string
   overrideUrl?: string
 }): Promise<string> {
-  const {releaseName, filenameWithExt, checksums, githubOrgRepo = "electron-userland/electron-builder-binaries", overrideUrl} = options
+  const { releaseName, filenameWithExt, checksums, githubOrgRepo = "electron-userland/electron-builder-binaries", overrideUrl } = options
 
   if (/[/\\]|\.\./.test(filenameWithExt)) {
     throw new Error(`downloadBuilderToolset: unsafe filenameWithExt "${filenameWithExt}" — must be a plain filename with no path separators or traversal sequences`)
@@ -658,7 +645,7 @@ export async function downloadBuilderToolset(options: {
   // extract-dir name for .tar.7z toolsets (e.g. the snap template) from "<name>.tar-<hash>" to "<name>-<hash>",
   // which busts caches poisoned by the broken .tar.7z extraction in 26.15.0-26.15.6 (issue #10002).
   const folderName = `${filenameWithExt.replace(/\.(tar\.gz|tgz|tar\.xz|txz|tar\.7z|zip|7z)$/, "")}-${suffix}`
-  const extractDir = path.join(getCacheDirectory({allowEnvVarOverride: true}), releaseName, folderName)
+  const extractDir = path.join(getCacheDirectory({ allowEnvVarOverride: true }), releaseName, folderName)
 
   // Use resolveAssetURL so @electron/get's ELECTRON_MIRROR env var check cannot override
   // the builder-binaries URL we've already resolved (see getArtifactRemoteURL in @electron/get).
@@ -669,14 +656,14 @@ export async function downloadBuilderToolset(options: {
   // Predictable archive cache: <cacheDir>/<releaseName>/<filename>, next to the extract dir.
   // downloadAndExtract checks here before touching @electron/get and persists the archive here
   // after every successful download, so subsequent builds never need a network round-trip.
-  const archiveCachePath = path.join(getCacheDirectory({allowEnvVarOverride: true}), releaseName, filenameWithExt)
+  const archiveCachePath = path.join(getCacheDirectory({ allowEnvVarOverride: true }), releaseName, filenameWithExt)
 
   const config: ElectronDownloadRequest & ElectronDownloadRequestOptions & { isGeneric: true } = {
     version: "9.9.9", // must be >1.3.2 to bypass @electron/get validation shortcut
     artifactName: filenameWithExt,
-    cacheRoot: path.resolve(getCacheDirectory({allowEnvVarOverride: true}), "downloads"),
+    cacheRoot: path.resolve(getCacheDirectory({ allowEnvVarOverride: true }), "downloads"),
     cacheMode: resolveCacheMode(),
-    ...(electronGetVerifiableChecksums != null ? {checksums: electronGetVerifiableChecksums} : {unsafelyDisableChecksums: true}),
+    ...(electronGetVerifiableChecksums != null ? { checksums: electronGetVerifiableChecksums } : { unsafelyDisableChecksums: true }),
     mirrorOptions,
     isGeneric: true,
   }
@@ -754,17 +741,16 @@ export async function resolveSeededChecksums(cacheRoot: string, version: string,
     let content: string
     try {
       content = await fs.readFile(candidate, "utf-8")
-    }
-    catch (err: any) {
-      log.warn({file: log.filePath(candidate), err: err.message}, "failed to read seeded SHASUMS file — ignoring it")
+    } catch (err: any) {
+      log.warn({ file: log.filePath(candidate), err: err.message }, "failed to read seeded SHASUMS file — ignoring it")
       continue
     }
     const checksums = parseChecksumFile(content)
     if (checksums[artifactFileName] == null) {
-      log.warn({file: log.filePath(candidate), artifactFileName}, "seeded SHASUMS file has no entry for the requested artifact — ignoring it")
+      log.warn({ file: log.filePath(candidate), artifactFileName }, "seeded SHASUMS file has no entry for the requested artifact — ignoring it")
       continue
     }
-    log.debug({file: log.filePath(candidate), artifactFileName}, "using locally seeded SHASUMS256 checksums — checksum validation can run offline")
+    log.debug({ file: log.filePath(candidate), artifactFileName }, "using locally seeded SHASUMS256 checksums — checksum validation can run offline")
     return checksums
   }
   return null
@@ -779,23 +765,22 @@ export async function resolveSeededChecksums(cacheRoot: string, version: string,
  * Exposed for unit testing; not part of the public API.
  */
 export async function buildElectronArtifactConfig(options: ArtifactDownloadOptions): Promise<ElectronPlatformArtifactDetails> {
-  const {electronDownload, arch, version, platformName: platform, artifactName, cacheDir: cacheRoot} = options
+  const { electronDownload, arch, version, platformName: platform, artifactName, cacheDir: cacheRoot } = options
 
-  let artifactConfig: ElectronPlatformArtifactDetails = {cacheRoot, platform, arch, version, artifactName}
+  let artifactConfig: ElectronPlatformArtifactDetails = { cacheRoot, platform, arch, version, artifactName }
 
   if (electronDownload != null) {
     if (isElectronGetOptions(electronDownload)) {
-      const {mirrorOptions, ...rest} = electronDownload
-      artifactConfig = {...artifactConfig, ...rest, cacheRoot, mirrorOptions}
-    }
-    else {
-      const {mirror, customDir, cache, customFilename, isVerifyChecksum, strictSSL, platform: overridePlatform, arch: overrideArch} = electronDownload
+      const { mirrorOptions, ...rest } = electronDownload
+      artifactConfig = { ...artifactConfig, ...rest, cacheRoot, mirrorOptions }
+    } else {
+      const { mirror, customDir, cache, customFilename, isVerifyChecksum, strictSSL, platform: overridePlatform, arch: overrideArch } = electronDownload
       // strictSSL: false disables TLS certificate validation for all
       // electron/tool downloads.  This option exists only for air-gapped or
       // self-signed-cert environments; ensure your build network is fully trusted.
       if (strictSSL === false) {
         log.warn(
-          {option: "electronDownload.strictSSL"},
+          { option: "electronDownload.strictSSL" },
           "strictSSL is false — TLS certificate validation is DISABLED for Electron downloads. Only use this option in a trusted, isolated build environment."
         )
       }
@@ -808,7 +793,7 @@ export async function buildElectronArtifactConfig(options: ArtifactDownloadOptio
           customDir: customDir || undefined,
           customFilename: customFilename || undefined,
         },
-        ...(strictSSL === false ? {downloadOptions: {https: {rejectUnauthorized: false}}} : {}),
+        ...(strictSSL === false ? { downloadOptions: { https: { rejectUnauthorized: false } } } : {}),
       }
       if (overridePlatform != null) {
         artifactConfig.platform = overridePlatform
@@ -843,12 +828,12 @@ export async function downloadElectronArtifactZip(options: ArtifactDownloadOptio
 }
 
 export async function downloadElectronArtifact(options: ArtifactDownloadOptions): Promise<string> {
-  const {arch, version, platformName: platform, artifactName} = options
+  const { arch, version, platformName: platform, artifactName } = options
   const artifactConfig = await buildElectronArtifactConfig(options)
 
   const suffix = hashUrlSafe(JSON.stringify(artifactConfig), 5)
   const folderName = `${artifactName}-v${version}-${platform}-${arch}-${suffix}`
-  const extractDir = path.join(getCacheDirectory({allowEnvVarOverride: true}), `${artifactName}-v${version}`, folderName)
+  const extractDir = path.join(getCacheDirectory({ allowEnvVarOverride: true }), `${artifactName}-v${version}`, folderName)
 
   return downloadAndExtract(artifactConfig, extractDir, artifactName)
 }

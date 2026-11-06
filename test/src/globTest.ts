@@ -172,7 +172,7 @@ test.ifNotWindows("failed peer dep", ({ expect }) => {
     },
     {
       storeDepsLockfileSnapshot: true,
-      packageManager: PM.YARN,
+      packageManager: PM.NPM,
       projectDirCreated: async projectDir => {
         return Promise.all([
           modifyPackageJson(projectDir, data => {

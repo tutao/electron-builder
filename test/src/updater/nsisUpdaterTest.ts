@@ -8,9 +8,9 @@ import { assertThat } from "../helpers/fileAssert"
 import { removeUnstableProperties } from "../helpers/packTester"
 import { createNsisUpdater, trackEvents, validateDownload, writeUpdateConfig } from "../helpers/updaterTestUtil"
 
-const config = {retry: 3}
+const config = { retry: 3 }
 
-test("downgrade (disallowed, beta)", config, async ({expect}) => {
+test("downgrade (disallowed, beta)", config, async ({ expect }) => {
   const updater = await createNsisUpdater("1.5.2-beta.4")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -33,7 +33,7 @@ test("downgrade (disallowed, beta)", config, async ({expect}) => {
   expect(actualEvents).toEqual(expectedEvents)
 })
 
-test("github allowPrerelease=true", config, async ({expect}) => {
+test("github allowPrerelease=true", config, async ({ expect }) => {
   const updater = await createNsisUpdater("1.0.1")
   updater.allowPrerelease = true
   updater.updateConfigPath = await writeUpdateConfig({
@@ -44,7 +44,7 @@ test("github allowPrerelease=true", config, async ({expect}) => {
   expect(removeUnstableProperties(updateCheckResult?.updateInfo)).toMatchSnapshot()
 })
 
-test("github allowPrerelease=false", config, async ({expect}) => {
+test("github allowPrerelease=false", config, async ({ expect }) => {
   const updater = await createNsisUpdater("1.0.1")
   updater.allowPrerelease = false
   updater.updateConfigPath = await writeUpdateConfig({
@@ -55,7 +55,7 @@ test("github allowPrerelease=false", config, async ({expect}) => {
   expect(removeUnstableProperties(updateCheckResult?.updateInfo)).toMatchSnapshot()
 })
 
-test("file url generic", config, async ({expect}) => {
+test("file url generic", config, async ({ expect }) => {
   const updater = await createNsisUpdater()
   updater.updateConfigPath = await writeUpdateConfig<GenericServerOptions>({
     provider: "generic",
@@ -64,7 +64,7 @@ test("file url generic", config, async ({expect}) => {
   await validateDownload(expect, updater)
 })
 
-test.skip("sha512 mismatch error event", config, async ({expect}) => {
+test.skip("sha512 mismatch error event", config, async ({ expect }) => {
   const updater = await createNsisUpdater()
   updater.updateConfigPath = await writeUpdateConfig<GenericServerOptions>({
     provider: "generic",
@@ -81,7 +81,7 @@ test.skip("sha512 mismatch error event", config, async ({expect}) => {
   expect(actualEvents).toMatchSnapshot()
 })
 
-test("file url generic - manual download", config, async ({expect}) => {
+test("file url generic - manual download", config, async ({ expect }) => {
   const updater = await createNsisUpdater()
   updater.updateConfigPath = await writeUpdateConfig<GenericServerOptions>({
     provider: "generic",
@@ -101,7 +101,7 @@ test("file url generic - manual download", config, async ({expect}) => {
 })
 
 // https://github.com/electron-userland/electron-builder/issues/1045
-test("checkForUpdates several times", config, async ({expect}) => {
+test("checkForUpdates several times", config, async ({ expect }) => {
   const updater = await createNsisUpdater()
   updater.updateConfigPath = await writeUpdateConfig<GenericServerOptions>({
     provider: "generic",
@@ -132,7 +132,7 @@ async function checkDownloadPromise(expect: ExpectStatic, updateCheckResult: Upd
   return await assertThat(expect, path.join((await updateCheckResult?.downloadPromise)![0])).isFile()
 }
 
-test("test error", config, async ({expect}) => {
+test("test error", config, async ({ expect }) => {
   const updater = await createNsisUpdater("0.0.1")
   const actualEvents = trackEvents(updater)
 
@@ -142,7 +142,7 @@ test("test error", config, async ({expect}) => {
 
 // TestNodeHttpExecutor.download() buffers the full response before writing — onProgress is never
 // called, so progressEvents is always empty. Requires a streaming executor to work correctly.
-test.skip("test download progress", config, async ({expect}) => {
+test.skip("test download progress", config, async ({ expect }) => {
   const updater = await createNsisUpdater("0.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -166,7 +166,7 @@ test.skip("test download progress", config, async ({expect}) => {
   expect(lastEvent.transferred).toBe(lastEvent.total)
 })
 
-test("valid signature", config, async ({expect}) => {
+test("valid signature", config, async ({ expect }) => {
   const updater = await createNsisUpdater("0.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -175,7 +175,7 @@ test("valid signature", config, async ({expect}) => {
   await validateDownload(expect, updater)
 })
 
-test("valid signature - multiple publisher DNs", config, async ({expect}) => {
+test("valid signature - multiple publisher DNs", config, async ({ expect }) => {
   const updater = await createNsisUpdater("0.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -185,7 +185,7 @@ test("valid signature - multiple publisher DNs", config, async ({expect}) => {
   await validateDownload(expect, updater)
 })
 
-test("valid signature using DN", config, async ({expect}) => {
+test("valid signature using DN", config, async ({ expect }) => {
   const updater = await createNsisUpdater("0.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -196,7 +196,7 @@ test("valid signature using DN", config, async ({expect}) => {
   await validateDownload(expect, updater)
 })
 
-test.ifWindows("invalid signature", config, async ({expect}) => {
+test.ifWindows("invalid signature", config, async ({ expect }) => {
   const updater = await createNsisUpdater("0.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -211,7 +211,7 @@ test.ifWindows("invalid signature", config, async ({expect}) => {
   expect(actualEvents).toMatchSnapshot()
 })
 
-test.ifWindows("test custom signature verifier", config, async ({expect}) => {
+test.ifWindows("test custom signature verifier", config, async ({ expect }) => {
   const updater = await createNsisUpdater("1.0.2")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -224,7 +224,7 @@ test.ifWindows("test custom signature verifier", config, async ({expect}) => {
   await validateDownload(expect, updater)
 })
 
-test.ifWindows("test custom signature verifier - signing error message", config, async ({expect}) => {
+test.ifWindows("test custom signature verifier - signing error message", config, async ({ expect }) => {
   const updater = await createNsisUpdater("1.0.2")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -243,7 +243,7 @@ test.ifWindows("test custom signature verifier - signing error message", config,
 })
 
 // disable for now
-test("90 staging percentage", config, async ({expect}) => {
+test("90 staging percentage", config, async ({ expect }) => {
   const userIdFile = path.join(tmpdir(), "electron-updater-test", "userData", ".updaterId")
   await outputFile(userIdFile, "1wa70172-80f8-5cc4-8131-28f5e0edd2a1")
 
@@ -256,7 +256,7 @@ test("90 staging percentage", config, async ({expect}) => {
   await validateDownload(expect, updater)
 })
 
-test("1 staging percentage", config, async ({expect}) => {
+test("1 staging percentage", config, async ({ expect }) => {
   const userIdFile = path.join(tmpdir(), "electron-updater-test", "userData", ".updaterId")
   await outputFile(userIdFile, "12a70172-80f8-5cc4-8131-28f5e0edd2a1")
 
@@ -269,7 +269,7 @@ test("1 staging percentage", config, async ({expect}) => {
   await validateDownload(expect, updater, false)
 })
 
-test("cancel download with progress", config, async ({expect}) => {
+test("cancel download with progress", config, async ({ expect }) => {
   const updater = await createNsisUpdater()
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
@@ -297,7 +297,7 @@ test("cancel download with progress", config, async ({expect}) => {
   expect(cancelled).toBe(true)
 })
 
-test("test download and install", config, async ({expect}) => {
+test("test download and install", config, async ({ expect }) => {
   const updater = await createNsisUpdater()
   updater.updateConfigPath = await writeUpdateConfig<GenericServerOptions>({
     provider: "generic",
@@ -310,7 +310,7 @@ test("test download and install", config, async ({expect}) => {
 // before-quit-for-update is emitted via require("electron").autoUpdater.emit(...) inside setImmediate
 // in BaseUpdater.quitAndInstall — it fires on the native Electron autoUpdater object, not on the
 // updater instance, and only after install() returns true (which spawns a .exe on Linux/macOS and fails).
-test.skip("test downloaded installer", config, async ({expect}) => {
+test.skip("test downloaded installer", config, async ({ expect }) => {
   const updater = await createNsisUpdater("1.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",

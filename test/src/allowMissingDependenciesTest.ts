@@ -1,14 +1,13 @@
-import { afterEach, describe, test, vi } from "vitest"
-import * as fse from "fs-extra"
-import * as path from "path"
-import { collectNodeModulesWithLogging, enforceAllowMissingDependencies } from "app-builder-lib/src/util/appFileCopier"
-import { PM } from "app-builder-lib/src/node-module-collector/packageManager"
 import { LogMessageByKey, ModuleManager } from "app-builder-lib/src/node-module-collector/moduleManager"
 import { NpmNodeModulesCollector } from "app-builder-lib/src/node-module-collector/npmNodeModulesCollector"
-import { PnpmNodeModulesCollector } from "app-builder-lib/src/node-module-collector/pnpmNodeModulesCollector"
-import type { NpmDependency, PnpmDependency } from "app-builder-lib/src/node-module-collector/types"
+import { PM } from "app-builder-lib/src/node-module-collector/packageManager"
+import type { NpmDependency } from "app-builder-lib/src/node-module-collector/types"
+import { collectNodeModulesWithLogging, enforceAllowMissingDependencies } from "app-builder-lib/src/util/appFileCopier"
 import { log } from "builder-util"
+import * as fse from "fs-extra"
+import * as path from "path"
 import { TmpDir } from "temp-file"
+import { afterEach, describe, test, vi } from "vitest"
 
 // Coverage for the `allowMissingDependencies` configuration (issue #10058), v26 flavor:
 //   - `true` or omitted (the v26 default): missing production dependencies only produce warnings,
@@ -192,82 +191,6 @@ describe("allowMissingDependencies (npm collector summary integration)", { seque
     expect(() => enforceAllowMissingDependencies(undefined, logSummary)).not.toThrow()
     // Allow-list (the issue's `"ignoreMissingDependency": ["x"]` shape) -> allowed, passes.
     expect(() => enforceAllowMissingDependencies(["gone-from-disk", "never-found"], logSummary)).not.toThrow()
-  })
-})
-
-// The pnpm collector knows a dependency is declared in `optionalDependencies` when its existence
-// check fails; the miss must be classified as optional (fsevents on Linux/Windows being the
-// canonical case) and must therefore never trip enforcement.
-describe("allowMissingDependencies (pnpm declared-optional classification)", { sequential: true }, () => {
-  let root = ""
-  afterEach(async () => {
-    if (root) {
-      await fse.rm(root, { recursive: true, force: true })
-      root = ""
-    }
-  })
-
-  class StubbedPnpmNodeModulesCollector extends PnpmNodeModulesCollector {
-    constructor(
-      rootDir: string,
-      tempDirManager: TmpDir,
-      private readonly cannedTree: PnpmDependency
-    ) {
-      super(rootDir, tempDirManager)
-    }
-
-    protected override getDependenciesTree(): Promise<PnpmDependency> {
-      // Mirror parseDependenciesTree's side effect without shelling out to `pnpm list`.
-      ;(this as any)._allWorkspacePackages = [this.cannedTree]
-      return Promise.resolve(this.cannedTree)
-    }
-  }
-
-  test("declared-optional misses land in the optional buckets and never trip enforcement", async ({ expect }) => {
-    root = await buildPackageTree({
-      "package.json": {
-        name: "my-app",
-        version: "1.0.0",
-        dependencies: { "keep-me": "^1.0.0" },
-      },
-      // `keep-me` is installed and declares the optional dependencies; fsevents and
-      // sass-embedded-linux-x64 are intentionally NOT installed.
-      "node_modules/keep-me/package.json": {
-        name: "keep-me",
-        version: "1.0.0",
-        optionalDependencies: { fsevents: "^2.3.0", "sass-embedded-linux-x64": "^1.79.0" },
-      },
-    })
-
-    const dep = (name: string, version: string): PnpmDependency =>
-      ({ from: name, name, version, path: path.join(root, "node_modules", name), dependencies: {}, optionalDependencies: {} }) as unknown as PnpmDependency
-    const keepMe = dep("keep-me", "1.0.0")
-    ;(keepMe as any).optionalDependencies = {
-      fsevents: dep("fsevents", "2.3.3"),
-      "sass-embedded-linux-x64": dep("sass-embedded-linux-x64", "1.79.0"),
-    }
-    const tree: PnpmDependency = {
-      name: "my-app",
-      from: "my-app",
-      version: "1.0.0",
-      path: root,
-      dependencies: { "keep-me": keepMe },
-      optionalDependencies: {},
-    } as unknown as PnpmDependency
-
-    const collector = new StubbedPnpmNodeModulesCollector(root, projectTmpDir, tree)
-    const { nodeModules, logSummary } = await collector.getNodeModules({ packageName: "my-app" })
-
-    expect(nodeModules.map(m => m.name)).toContain("keep-me")
-    // Declared-optional miss -> optional bucket (previously mis-filed under PKG_NOT_ON_DISK)...
-    expect(logSummary[LogMessageByKey.PKG_OPTIONAL_NOT_INSTALLED] ?? []).toEqual(["fsevents@2.3.3"])
-    // ...while a platform-suffixed name keeps its dedicated platform-optional bucket.
-    expect(logSummary[LogMessageByKey.PKG_OPTIONAL_PLATFORM_NOT_INSTALLED] ?? []).toEqual(["sass-embedded-linux-x64@1.79.0"])
-    expect(logSummary[LogMessageByKey.PKG_NOT_ON_DISK] ?? []).toEqual([])
-    expect(logSummary[LogMessageByKey.PKG_NOT_FOUND] ?? []).toEqual([])
-
-    // Neither optional bucket trips the strictest form of the option.
-    expect(() => enforceAllowMissingDependencies(false, logSummary)).not.toThrow()
   })
 })
 

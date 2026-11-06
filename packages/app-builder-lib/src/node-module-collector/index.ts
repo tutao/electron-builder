@@ -1,29 +1,17 @@
+import { isEmptyOrSpaces, log, spawn } from "builder-util"
 import { Nullish } from "builder-util-runtime"
+import * as fs from "fs-extra"
+import { Lazy } from "lazy-val"
+import * as path from "path"
 import { TmpDir } from "temp-file"
 import { NpmNodeModulesCollector } from "./npmNodeModulesCollector"
 import { detectPackageManager, getPackageManagerCommand, PM } from "./packageManager"
-import { PnpmNodeModulesCollector } from "./pnpmNodeModulesCollector"
-import { YarnBerryNodeModulesCollector } from "./yarnBerryNodeModulesCollector"
-import { YarnNodeModulesCollector } from "./yarnNodeModulesCollector"
-import { BunNodeModulesCollector } from "./bunNodeModulesCollector"
-import { Lazy } from "lazy-val"
-import { spawn, log, exists, isEmptyOrSpaces } from "builder-util"
-import * as fs from "fs-extra"
-import * as path from "path"
 import { TraversalNodeModulesCollector } from "./traversalNodeModulesCollector"
 
 export { getPackageManagerCommand, PM }
 
 export function getCollectorByPackageManager(pm: PM, rootDir: string, tempDirManager: TmpDir) {
   switch (pm) {
-    case PM.PNPM:
-      return new PnpmNodeModulesCollector(rootDir, tempDirManager)
-    case PM.YARN:
-      return new YarnNodeModulesCollector(rootDir, tempDirManager)
-    case PM.YARN_BERRY:
-      return new YarnBerryNodeModulesCollector(rootDir, tempDirManager)
-    case PM.BUN:
-      return new BunNodeModulesCollector(rootDir, tempDirManager)
     case PM.NPM:
       return new NpmNodeModulesCollector(rootDir, tempDirManager)
     case PM.TRAVERSAL:
@@ -69,33 +57,9 @@ export const determinePackageManagerEnv = ({ projectDir, appDir, workspaceRoot }
 
 /** @internal exported for tests */
 export async function findWorkspaceRoot(pm: PM, cwd: string): Promise<string | undefined> {
-  if (pm === PM.PNPM) {
-    // pnpm itself locates the workspace root with a plain upward search for `pnpm-workspace.yaml` (@pnpm/find-workspace-dir), so
-    // mirror that on disk instead of shelling out to `pnpm --workspace-root exec pwd`. `pwd` is a POSIX command: on Windows it is
-    // either missing (so detection fell back to a `package.json#workspaces` walk, which pnpm workspaces do not use) or resolves to
-    // the Git-for-Windows binary, whose MSYS-style `/d/a/repo` output is not a usable path. Either way the root was lost and
-    // `@electron/rebuild` never reached native modules stored under the root `node_modules/.pnpm` (#10187).
-    const root = await findNearestDir(cwd, dir => exists(path.join(dir, "pnpm-workspace.yaml")))
-    if (root != null) {
-      log.debug({ path: root }, "identified pnpm workspace root")
-      return root
-    }
-    return findNearestPackageJsonWithWorkspacesField(cwd)
-  }
-
   let command: { command: string; args: string[] }
 
   switch (pm) {
-    case PM.YARN_BERRY:
-      command = { command: "yarn", args: ["workspaces", "list", "--json"] }
-      break
-    case PM.YARN: {
-      command = { command: "yarn", args: ["workspaces", "info", "--silent"] }
-      break
-    }
-    case PM.BUN:
-      command = { command: "bun", args: ["pm", "ls", "--json"] }
-      break
     case PM.NPM:
     default:
       command = { command: "npm", args: ["prefix", "-w"] }
@@ -103,31 +67,10 @@ export async function findWorkspaceRoot(pm: PM, cwd: string): Promise<string | u
   }
 
   const output = await spawn(command.command, command.args, { cwd, stdio: ["ignore", "pipe", "ignore"] })
-    .then(async it => {
+    .then(it => {
       const out: string | undefined = it?.trim()
       if (!out) {
         return undefined
-      }
-      if (pm === PM.YARN) {
-        JSON.parse(out) // if JSON valid, workspace detected
-        return findNearestPackageJsonWithWorkspacesField(cwd)
-      } else if (pm === PM.BUN) {
-        const json = JSON.parse(out)
-        if (Array.isArray(json) && json.length > 0) {
-          return findNearestPackageJsonWithWorkspacesField(cwd)
-        }
-      } else if (pm === PM.YARN_BERRY) {
-        const lines = out
-          .split("\n")
-          .map(l => l.trim())
-          .filter(Boolean)
-        for (const line of lines) {
-          const parsed = JSON.parse(line)
-          if (parsed.location != null) {
-            const potential = path.resolve(cwd, parsed.location)
-            return (await exists(potential)) ? findNearestPackageJsonWithWorkspacesField(potential) : undefined
-          }
-        }
       }
       return out.length === 0 || out === "undefined" ? undefined : out
     })

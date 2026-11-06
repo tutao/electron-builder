@@ -41,7 +41,7 @@ async function buildExplicitLicenseConfig(packager: PlatformPackager<any>, licen
     if (resolvedPath == null) {
       throw new InvalidConfigurationError(`dmg.license file not found: "${license}"`)
     }
-    return {"default-language": "en_US", licenses: {en_US: resolvedPath}}
+    return { "default-language": "en_US", licenses: { en_US: resolvedPath } }
   }
 
   // Record<langCode, filePath>
@@ -93,7 +93,7 @@ async function buildConventionLicenseConfig(packager: PlatformPackager<any>): Pr
     const buttons: DmgBuildLicenseConfig["buttons"] = {}
     for (const button of licenseButtonFiles) {
       const filepath = button.file
-      const raw: any = filepath.endsWith(".yml") ? load(await readFile(filepath, "utf-8"), {schema: CORE_SCHEMA}) : await readJson(filepath)
+      const raw: any = filepath.endsWith(".yml") ? load(await readFile(filepath, "utf-8"), { schema: CORE_SCHEMA }) : await readJson(filepath)
 
       const entry: Record<string, string> = {}
       if (raw.languageName != null) {

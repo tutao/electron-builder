@@ -1,43 +1,38 @@
+import AdmZip from "adm-zip"
 import { PublishManager } from "app-builder-lib"
-import { verifyAsarFileTree as _verifyAsarFileTree } from "./asarVerifier"
+import { AsarIntegrity } from "app-builder-lib/out/asar/integrity"
+import { getCollectorByPackageManager, PM } from "app-builder-lib/out/node-module-collector"
+import { detectPackageManager } from "app-builder-lib/out/node-module-collector/packageManager"
 import { computeArchToTargetNamesMap } from "app-builder-lib/out/targets/targetFactory"
 import { getLinuxToolsMacToolset } from "app-builder-lib/out/toolsets/linux"
+import { computeDefaultAppDirectory } from "app-builder-lib/out/util/config/config"
 import { parsePlistFile, PlistObject } from "app-builder-lib/out/util/plist"
-import { AsarIntegrity } from "app-builder-lib/out/asar/integrity"
+import { installDependencies } from "app-builder-lib/out/util/yarn"
 import { addValue, copyDir, exec, executeFinally, exists, FileCopier, log, USE_HARD_LINKS, walk } from "builder-util"
 import { CancellationToken, deepAssign, UpdateFileInfo } from "builder-util-runtime"
+import { execSync } from "child_process"
 import { Arch, ArtifactCreated, Configuration, DIR_TARGET, getArchSuffix, MacOsTargetName, Packager, PackagerOptions, Platform, Target } from "electron-builder"
-import { convertVersion } from "electron-winstaller"
 import { PublishPolicy } from "electron-publish"
+import { convertVersion } from "electron-winstaller"
+import { realpath as realpathCb } from "fs"
 import { copyFile, emptyDir, mkdir, writeJson } from "fs-extra"
 import * as fs from "fs/promises"
-import { realpath as realpathCb } from "fs"
 import { load } from "js-yaml"
 import * as path from "path"
 import pathSorter from "path-sort"
 import { NtExecutable, NtExecutableResource } from "resedit"
-import { TmpDir } from "temp-file"
-import { getCollectorByPackageManager, PM } from "app-builder-lib/out/node-module-collector"
-import { promisify } from "util"
-import { MAC_CSC_LINK, WIN_CSC_LINK } from "./codeSignData"
-import { assertThat } from "./fileAssert"
-import AdmZip from "adm-zip"
 // @ts-ignore
 import sanitizeFileName from "sanitize-filename"
+import { TmpDir } from "temp-file"
+import { promisify } from "util"
 import type { ExpectStatic } from "vitest"
-import { computeDefaultAppDirectory } from "app-builder-lib/out/util/config/config"
-import { installDependencies } from "app-builder-lib/out/util/yarn"
+import { verifyAsarFileTree as _verifyAsarFileTree } from "./asarVerifier"
+import { MAC_CSC_LINK, WIN_CSC_LINK } from "./codeSignData"
+import { assertThat } from "./fileAssert"
 import { ELECTRON_VERSION } from "./testConfig"
-import { execSync } from "child_process"
-import { detectPackageManager } from "app-builder-lib/out/node-module-collector/packageManager"
 
 const PACKAGE_MANAGER_VERSION_MAP = {
   [PM.NPM]: { cli: "npm", version: "12.0.2" },
-  [PM.YARN]: { cli: "yarn", version: "1.22.22" },
-  [PM.YARN_BERRY]: { cli: "yarn", version: "4.18.0" },
-  // pnpm >= 10.29.3 emits deduped subtrees in `pnpm list --json` as childless stubs, which the pnpm collector does not resolve yet (fix on branch fix/pnpm-deduped-list-collector)
-  [PM.PNPM]: { cli: "pnpm", version: "10.28.2" },
-  [PM.BUN]: { cli: "bun", version: "1.4.2" },
   [PM.TRAVERSAL]: { cli: "npm", version: "12.0.2" }, // use npm to install, we're testing manual node traversal, but we still need something to install the dependencies
 }
 
@@ -57,23 +52,12 @@ export function getPackageManagerWithVersion(pm: PM, packageManagerAndVersionStr
 
 function getLockedInstallArgs(pm: PM): Array<string> | undefined {
   switch (pm) {
-    case PM.YARN:
-    case PM.PNPM:
-    case PM.BUN:
-      return ["--frozen-lockfile"]
-    case PM.YARN_BERRY:
-      return ["--immutable"]
     default:
       return undefined
   }
 }
 
 function getUnlockedInstallArgs(pm: PM): Array<string> | undefined {
-  // Yarn handles CI immutable installs via YARN_ENABLE_IMMUTABLE_INSTALLS=false in runtimeEnv.
-  // pnpm has no env var equivalent; must explicitly pass --no-frozen-lockfile.
-  if (pm === PM.PNPM) {
-    return ["--no-frozen-lockfile"]
-  }
   return undefined
 }
 
@@ -82,7 +66,7 @@ function getUnlockedInstallArgs(pm: PM): Array<string> | undefined {
 // install, which is the product feature under test. npm, yarn 1, pnpm and bun all take `--ignore-scripts` on
 // `install`; yarn berry has no such flag and is handled through YARN_ENABLE_SCRIPTS on the install env instead.
 function getIgnoreScriptsInstallArgs(pm: PM): Array<string> {
-  return pm === PM.YARN_BERRY ? [] : ["--ignore-scripts"]
+  return ["--ignore-scripts"]
 }
 
 function getLockfileFixtureNameCandidates(currentTestName: string): Array<string> {
@@ -103,7 +87,6 @@ function getLockfileFixtureNameCandidates(currentTestName: string): Array<string
 
 export const EXTENDED_TIMEOUT = 14 * 60 * 1000
 export const linuxDirTarget = Platform.LINUX.createTarget(DIR_TARGET, Arch.x64)
-export const snapTarget = Platform.LINUX.createTarget("snap", Arch.x64)
 
 export interface AssertPackOptions {
   readonly projectDirCreated?: (projectDir: string, tmpDir: TmpDir, testEnv: NodeJS.ProcessEnv) => Promise<any> | (() => Promise<any>)
@@ -146,7 +129,7 @@ export function appTwoThrows(expect: ExpectStatic, packagerOptions: PackagerOpti
 }
 
 export function app(expect: ExpectStatic, packagerOptions: PackagerOptions, checkOptions: AssertPackOptions = {}) {
-  return assertPack(expect, packagerOptions.config != null && (packagerOptions.config as any).protonNodeVersion != null ? "proton" : "test-app-one", packagerOptions, checkOptions)
+  return assertPack(expect, "test-app-one", packagerOptions, checkOptions)
 }
 
 export function appTwo(expect: ExpectStatic, packagerOptions: PackagerOptions, checkOptions: AssertPackOptions = {}) {
@@ -247,21 +230,18 @@ export async function assertPack(expect: ExpectStatic, fixtureName: string, pack
       const { pm, corepackConfig: packageManager } = await detectPackageManager([projectDir])
       const { cli, prepareEntry, version } = getPackageManagerWithVersion(pm, packageManager)
 
-      if (pm === PM.BUN) {
-        log.info({ pm, version: version, projectDir }, "installing dependencies with bun; corepack does not support it currently and it must be installed separately")
-      } else {
-        log.info({ pm, version: version, projectDir }, "activating corepack")
-        try {
-          execSync(`corepack enable ${cli}`, { env: runtimeEnv, cwd: projectDir, stdio: ["ignore", "ignore", "ignore"] })
-        } catch (err: any) {
-          log.warn({ message: err.message }, "⚠️ corepack enable failed (possibly already enabled)")
-        }
-        try {
-          execSync(`corepack prepare ${prepareEntry} --activate`, { env: runtimeEnv, cwd: projectDir, stdio: ["ignore", "ignore", "ignore"] })
-        } catch (err: any) {
-          log.warn({ message: err.message }, "⚠️ corepack prepare failed")
-        }
+      log.info({ pm, version: version, projectDir }, "activating corepack")
+      try {
+        execSync(`corepack enable ${cli}`, { env: runtimeEnv, cwd: projectDir, stdio: ["ignore", "ignore", "ignore"] })
+      } catch (err: any) {
+        log.warn({ message: err.message }, "⚠️ corepack enable failed (possibly already enabled)")
       }
+      try {
+        execSync(`corepack prepare ${prepareEntry} --activate`, { env: runtimeEnv, cwd: projectDir, stdio: ["ignore", "ignore", "ignore"] })
+      } catch (err: any) {
+        log.warn({ message: err.message }, "⚠️ corepack prepare failed")
+      }
+
       const collector = getCollectorByPackageManager(pm, projectDir, tmpDir)
       const collectorOptions = collector.installOptions
 
@@ -286,7 +266,7 @@ export async function assertPack(expect: ExpectStatic, fixtureName: string, pack
       const additionalInstallArgs = [...getIgnoreScriptsInstallArgs(pm), ...(lockfileInstallArgs ?? [])]
       // Scoped to this install only: `runtimeEnv` also reaches the packager, whose install-or-rebuild path must keep
       // building natives. YARN_ENABLE_SCRIPTS is read by yarn berry alone (see getIgnoreScriptsInstallArgs).
-      const installEnv = pm === PM.YARN_BERRY ? { ...runtimeEnv, YARN_ENABLE_SCRIPTS: "0" } : runtimeEnv
+      const installEnv = runtimeEnv
 
       await installDependencies(
         configuration,

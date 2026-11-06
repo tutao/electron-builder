@@ -1,9 +1,9 @@
-import { configureRequestOptionsFromUrl, GithubOptions } from "builder-util-runtime"
+import { configureRequestOptionsFromUrl, GenericServerOptions } from "builder-util-runtime"
 import { MacUpdater } from "electron-updater/out/MacUpdater"
 import { EventEmitter } from "events"
+import { mockForNodeRequire } from "vitest-mock-commonjs"
 import { assertThat } from "../helpers/fileAssert"
 import { createTestAppAdapter, httpExecutor, trackEvents, tuneTestUpdater, writeUpdateConfig } from "../helpers/updaterTestUtil"
-import { mockForNodeRequire } from "vitest-mock-commonjs"
 
 class TestNativeUpdater extends EventEmitter {
   private updateUrl: string | null = null
@@ -36,10 +36,9 @@ test.ifMac("mac updates", async ({ expect }) => {
   })
 
   const updater = new MacUpdater(undefined, await createTestAppAdapter())
-  const options: GithubOptions = {
-    provider: "github",
-    owner: "develar",
-    repo: "onshape-desktop-shell",
+  const options: GenericServerOptions = {
+    provider: "generic",
+    url: "http://example.org",
   }
   updater.updateConfigPath = await writeUpdateConfig(options)
 

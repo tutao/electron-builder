@@ -79,7 +79,7 @@ describe("resolveFirstMatchingCollection", () => {
   test("returns the first matching collection from the active package manager", async ({ expect }) => {
     const calls: Array<{ pm: PM; dir: string }> = []
     const result = await resolveFirstMatchingCollection({
-      pmApproaches: [PM.YARN_BERRY, PM.TRAVERSAL],
+      pmApproaches: [PM.NPM, PM.TRAVERSAL],
       searchDirectories: ["/app"],
       dependencies: appDeps,
       run: (pm, dir) => {
@@ -89,13 +89,13 @@ describe("resolveFirstMatchingCollection", () => {
     })
     expect(result?.nodeModules.map(m => m.name)).toEqual(["minimist", "fs-extra"])
     // TRAVERSAL must not run once the active package manager already produced a matching result.
-    expect(calls).toEqual([{ pm: PM.YARN_BERRY, dir: "/app" }])
+    expect(calls).toEqual([{ pm: PM.NPM, dir: "/app" }])
   })
 
   test("falls through to TRAVERSAL when the active manager returns a mismatched tree (issue #9945)", async ({ expect }) => {
     const calls: Array<{ pm: PM; dir: string }> = []
     const result = await resolveFirstMatchingCollection({
-      pmApproaches: [PM.YARN_BERRY, PM.TRAVERSAL],
+      pmApproaches: [PM.NPM, PM.TRAVERSAL],
       searchDirectories: ["/app"],
       dependencies: appDeps,
       run: (pm, dir) => {
@@ -107,7 +107,7 @@ describe("resolveFirstMatchingCollection", () => {
     })
     expect(result?.nodeModules.map(m => m.name)).toEqual(["minimist", "fs-extra"])
     expect(calls).toEqual([
-      { pm: PM.YARN_BERRY, dir: "/app" },
+      { pm: PM.NPM, dir: "/app" },
       { pm: PM.TRAVERSAL, dir: "/app" },
     ])
   })
@@ -134,7 +134,7 @@ describe("resolveFirstMatchingCollection", () => {
     // If even TRAVERSAL cannot produce a matching tree we must not regress to an empty asar;
     // the first non-empty (mismatched) collection is returned rather than undefined.
     const result = await resolveFirstMatchingCollection({
-      pmApproaches: [PM.YARN_BERRY, PM.TRAVERSAL],
+      pmApproaches: [PM.NPM, PM.TRAVERSAL],
       searchDirectories: ["/app"],
       dependencies: appDeps,
       run: () => Promise.resolve(collection(NPM_INTERNALS)),
@@ -216,7 +216,7 @@ describe("resolveFirstMatchingCollection", () => {
 
   test("prefers a matching collection over an earlier mismatched fallback across directories", async ({ expect }) => {
     const result = await resolveFirstMatchingCollection({
-      pmApproaches: [PM.YARN_BERRY, PM.TRAVERSAL],
+      pmApproaches: [PM.NPM, PM.TRAVERSAL],
       searchDirectories: ["/app", "/workspace-root"],
       dependencies: appDeps,
       run: pm => Promise.resolve(pm === PM.TRAVERSAL ? collection(["minimist", "fs-extra"]) : collection(NPM_INTERNALS)),

@@ -7,7 +7,6 @@ import { DmgTarget } from "dmg-builder"
 import { Arch, MacConfiguration, Packager, Target } from "electron-builder"
 
 export class CheckingWinPackager extends WinPackager {
-
   constructor(info: Packager) {
     super(info)
   }

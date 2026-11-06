@@ -1,4 +1,4 @@
-import { AllPublishOptions, CustomPublishOptions, GenericServerOptions, newError, PublishConfiguration, } from "builder-util-runtime"
+import { AllPublishOptions, CustomPublishOptions, GenericServerOptions, newError, PublishConfiguration } from "builder-util-runtime"
 import { AppUpdater } from "./AppUpdater"
 import { GenericProvider } from "./providers/GenericProvider"
 import { Provider, ProviderRuntimeOptions } from "./providers/Provider"

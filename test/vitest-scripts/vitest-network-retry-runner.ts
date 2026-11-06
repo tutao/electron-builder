@@ -1,5 +1,5 @@
-import { getFn, setFn } from "vitest/suite"
 import { VitestTestRunner } from "vitest/runners"
+import { getFn, setFn } from "vitest/suite"
 
 // EPIPE is normal when a CI pipe closes before all output is flushed; suppress it.
 for (const stream of [process.stdout, process.stderr] as NodeJS.WriteStream[]) {
