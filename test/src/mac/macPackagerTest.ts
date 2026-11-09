@@ -191,7 +191,11 @@ describe("macPackager", { sequential: true }, () => {
     )
   )
 
-  test.ifNotMac("Build macOS on Windows is not supported", ({ expect }) => appThrows(expect, platform(Platform.MAC)))
+  test.ifNotMac("Build macOS on Windows is not supported", ({ expect }) =>
+    appThrows(expect, platform(Platform.MAC), undefined, e => {
+      expect(e.name).toBe("ERR_ELECTRON_BUILDER_INVALID_CONFIGURATION")
+    })
+  )
 
   test.ifMac("multiple asar resources", ({ expect }) =>
     app(

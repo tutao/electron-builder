@@ -253,8 +253,8 @@ test.ifNotWindows("overriding the publish channel", ({ expect }) =>
           data.devDependencies = {}
           data.build.publish = [
             {
-              provider: "s3",
-              bucket: "my-s3-bucket",
+              provider: "generic",
+              url: "https://example.com/update-my-app",
             },
           ]
         }),

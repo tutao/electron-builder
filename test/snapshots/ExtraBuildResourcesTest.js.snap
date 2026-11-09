@@ -167,12 +167,6 @@ exports[`override targets in the config - only arch 2`] = `
 }
 `;
 
-exports[`override targets in the config 1`] = `
-{
-  "linux": [],
-}
-`;
-
 exports[`overriding the publish channel 1`] = `
 {
   "linux": [],
@@ -182,17 +176,11 @@ exports[`overriding the publish channel 1`] = `
 exports[`overriding the publish channel 2`] = `
 [
   {
-    "bucket": "my-s3-bucket",
     "channel": "beta",
-    "provider": "s3",
+    "provider": "generic",
+    "url": "https://example.com/update-my-app",
   },
 ]
-`;
-
-exports[`prepackaged 1`] = `
-{
-  "linux": [],
-}
 `;
 
 exports[`retrieve latest electron version 1`] = `

@@ -1,7 +1,9 @@
 import { GenericServerOptions } from "builder-util-runtime"
 import { Arch, createTargets, Platform } from "electron-builder"
-import { outputFile } from "fs-extra"
+import { outputFile, readFile } from "fs-extra"
+import { load } from "js-yaml"
 import * as path from "path"
+import { assertThat } from "./helpers/fileAssert"
 import { app } from "./helpers/packTester"
 
 function genericPublisher(url: string): GenericServerOptions {
@@ -31,7 +33,7 @@ test.ifNotWindows("os macro", ({ expect }) =>
   app(
     expect,
     {
-      targets: createTargets([Platform.LINUX, Platform.MAC], "zip", "x64"),
+      targets: createTargets([Platform.LINUX], "zip", "x64"),
       config: {
         publish: {
           provider: "generic",
@@ -41,11 +43,13 @@ test.ifNotWindows("os macro", ({ expect }) =>
     },
     {
       publish: "always",
-      // FIXME: will fail
       projectDirCreated: async () => {},
-      packed: context => {
-        expect((context.packager.config.publish as GenericServerOptions).url).toBe("http://exmaple.org/stable/linux")
-        return Promise.resolve()
+      packed: async context => {
+        const dir = path.join(context.projectDir, "dist/linux-unpacked")
+        await assertThat(expect, dir).isDirectory()
+        const outputYamlContents = await readFile(path.join(dir, "resources", "app-update.yml"), "utf-8")
+        const outputYaml = load(outputYamlContents) as Record<string, string>
+        expect(outputYaml["url"]).toBe("http://example.org/latest/linux")
       },
     }
   )
@@ -56,7 +60,7 @@ test.ifNotWindows("custom provider", ({ expect }) =>
   app(
     expect,
     {
-      targets: createTargets([Platform.LINUX], "deb", "x64"),
+      targets: createTargets([Platform.LINUX], "zip", "x64"),
       config: {
         publish: {
           provider: "custom",

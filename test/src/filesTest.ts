@@ -119,8 +119,6 @@ async function doExtraResourcesTest(expect: ExpectStatic, platform: Platform) {
     expect,
     "test-app-one",
     {
-      // to check NuGet package
-      // FIXME does nsis work here?
       targets: platform.createTarget(platform === Platform.WINDOWS ? "nsis" : DIR_TARGET),
       config: {
         extraResources: ["foo", "bar/hello.txt", "./dir-relative/f.txt", "bar/${arch}.txt", "${os}/${arch}.txt"],
