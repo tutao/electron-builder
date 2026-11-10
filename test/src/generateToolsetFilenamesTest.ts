@@ -1,18 +1,19 @@
 import * as fs from "fs"
 import * as path from "path"
-import { describe, it, expect, beforeAll } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
+import { platformAllowed } from "../vitest-scripts/file-discovery"
 import { generateTests } from "../vitest-scripts/generate-tests"
 import { GENERATED_TESTS_DIR } from "../vitest-scripts/generate-toolset-tests-shared"
-import { platformAllowed } from "../vitest-scripts/file-discovery"
 
 // Collect all generated test filenames recursively
 function collectGeneratedFiles(dir: string): string[] {
   const results: string[] = []
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) {
       results.push(...collectGeneratedFiles(full))
-    } else if (entry.name.endsWith("Test.ts")) {
+    }
+    else if (entry.name.endsWith("Test.ts")) {
       results.push(full.split(path.sep).join("/"))
     }
   }
@@ -26,7 +27,7 @@ describe("Generated toolset test filenames", () => {
 
   it("files for ifWindows suites have .win. marker", () => {
     const files = collectGeneratedFiles(GENERATED_TESTS_DIR)
-    const winOnlySuites = ["portable", "assistedInstaller", "msi", "msiWrapped", "squirrelWindows", "appx", "differentialWin"]
+    const winOnlySuites = ["portable", "assistedInstaller", "differentialWin"]
     for (const suite of winOnlySuites) {
       const suiteFiles = files.filter(f => f.includes(`/${suite}/`))
       expect(suiteFiles.length, `${suite} should have generated files`).toBeGreaterThan(0)

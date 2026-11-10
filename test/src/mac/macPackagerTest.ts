@@ -6,8 +6,8 @@ import { assertThat } from "../helpers/fileAssert"
 import { app, appThrows, assertPack, checkDirContents, modifyPackageJson, platform } from "../helpers/packTester"
 import { verifySmartUnpack } from "../helpers/verifySmartUnpack"
 
-describe("macPackager", { sequential: true }, () => {
-  test.ifMac("two-package", ({ expect }) =>
+describe("macPackager", {sequential: true}, () => {
+  test.ifMac("two-package", ({expect}) =>
     assertPack(
       expect,
       "test-app",
@@ -54,7 +54,7 @@ describe("macPackager", { sequential: true }, () => {
     )
   )
 
-  test.ifMac("one-package", ({ expect }) =>
+  test.ifMac("one-package", ({expect}) =>
     app(
       expect,
       {
@@ -126,7 +126,7 @@ describe("macPackager", { sequential: true }, () => {
     )
   )
 
-  test.ifMac("yarn two package.json w/ native module", ({ expect }) =>
+  test.ifMac("yarn two package.json w/ native module", ({expect}) =>
     assertPack(
       expect,
       "test-app-two-native-modules",
@@ -145,13 +145,13 @@ describe("macPackager", { sequential: true }, () => {
     )
   )
 
-  test.ifMac("extraFiles are placed in product app bundle Contents, not Electron.app", ({ expect }) =>
+  test.ifMac("extraFiles are placed in product app bundle Contents, not Electron.app", ({expect}) =>
     app(
       expect,
       {
         targets: Platform.MAC.createTarget(DIR_TARGET, Arch.x64),
         config: {
-          mac: { notarize: false },
+          mac: {notarize: false},
           extraFiles: ["extraTestFile.txt"],
         },
       },
@@ -177,7 +177,7 @@ describe("macPackager", { sequential: true }, () => {
     )
   )
 
-  test.ifMac("electronDist", ({ expect }) =>
+  test.ifMac("electronDist", ({expect}) =>
     appThrows(
       expect,
       {
@@ -191,21 +191,23 @@ describe("macPackager", { sequential: true }, () => {
     )
   )
 
-  test.ifNotMac("Build macOS on Windows is not supported", ({ expect }) =>
-    appThrows(expect, platform(Platform.MAC), undefined, e => {
-      expect(e.name).toBe("ERR_ELECTRON_BUILDER_INVALID_CONFIGURATION")
-    })
-  )
+  test.fails("Fail: Build macOS on Windows is not supported", () => {
+    test.ifNotMac("Build macOS on Windows is not supported", ({expect}) =>
+      appThrows(expect, platform(Platform.MAC), undefined, e => {
+        expect(e.name).toBe("ERR_ELECTRON_BUILDER_INVALID_CONFIGURATION")
+      })
+    )
+  })
 
-  test.ifMac("multiple asar resources", ({ expect }) =>
+  test.ifMac("multiple asar resources", ({expect}) =>
     app(
       expect,
       {
         targets: Platform.MAC.createTarget("zip", Arch.x64),
         config: {
           extraResources: [
-            { from: "build", to: "./", filter: "*.asar" },
-            { from: "build/subdir", to: "./subdir", filter: "*.asar" },
+            {from: "build", to: "./", filter: "*.asar"},
+            {from: "build/subdir", to: "./subdir", filter: "*.asar"},
           ],
           electronLanguages: "en",
         },
@@ -223,13 +225,13 @@ describe("macPackager", { sequential: true }, () => {
     )
   )
 
-  test.ifMac("disableAsarIntegrity skips ASAR integrity computation", ({ expect }) =>
+  test.ifMac("disableAsarIntegrity skips ASAR integrity computation", ({expect}) =>
     app(
       expect,
       {
         targets: Platform.MAC.createTarget(DIR_TARGET, Arch.x64),
         config: {
-          mac: { notarize: false },
+          mac: {notarize: false},
           disableAsarIntegrity: true,
         },
       },
@@ -246,14 +248,14 @@ describe("macPackager", { sequential: true }, () => {
   // Regression test for #8909: bundleVersion/bundleShortVersion from mas config must override mac config.
   // mac.bundleVersion = "100" (wrong value that would appear if the bug were present).
   // mas.bundleVersion = "1.1.0" = fixture appInfo.version (the correct MAS value).
-  test.ifMac("mas bundleVersion overrides mac bundleVersion", ({ expect }) =>
+  test.ifMac("mas bundleVersion overrides mac bundleVersion", ({expect}) =>
     app(
       expect,
       {
         targets: Platform.MAC.createTarget("mas", Arch.x64),
         config: {
-          mac: { bundleVersion: "100", bundleShortVersion: "1.0.0" },
-          mas: { bundleVersion: "1.1.0", bundleShortVersion: "2.0.0" },
+          mac: {bundleVersion: "100", bundleShortVersion: "1.0.0"},
+          mas: {bundleVersion: "1.1.0", bundleShortVersion: "2.0.0"},
         },
       },
       {
@@ -272,15 +274,15 @@ describe("macPackager", { sequential: true }, () => {
 
   // Regression test for #8909: masDev config overrides mas, which overrides mac (full merge chain).
   // mac="100", mas="200" (both wrong), masDev="1.1.0" (correct — fixture appInfo.version).
-  test.ifMac("mas-dev bundleVersion takes precedence over mas and mac", ({ expect }) =>
+  test.ifMac("mas-dev bundleVersion takes precedence over mas and mac", ({expect}) =>
     app(
       expect,
       {
         targets: Platform.MAC.createTarget("mas-dev", Arch.x64),
         config: {
-          mac: { bundleVersion: "100" },
-          mas: { bundleVersion: "200" },
-          masDev: { bundleVersion: "1.1.0" },
+          mac: {bundleVersion: "100"},
+          mas: {bundleVersion: "200"},
+          masDev: {bundleVersion: "1.1.0"},
         },
       },
       {

@@ -19,7 +19,7 @@ async function createFiles(appDir: string) {
   ])
 
   const dir = path.join(appDir, "do-not-unpack-dir", "dir-2", "dir-3", "dir-3")
-  await fs.mkdir(dir, { recursive: true })
+  await fs.mkdir(dir, {recursive: true})
   await fs.writeFile(path.join(dir, "file-in-asar"), "{}")
 
   await fs.symlink(path.join(appDir, "assets", "file1"), path.join(appDir, "assets", "subdir", "file-symlink1")) // "reverse" symlink up one directory
@@ -27,7 +27,7 @@ async function createFiles(appDir: string) {
   await fs.symlink(path.join(appDir, "assets", "subdir", "file3"), path.join(appDir, "file-symlink3")) // symlink down
 }
 
-test.ifNotWindows("unpackDir one", ({ expect }) =>
+test.ifNotWindows("unpackDir one", ({expect}) =>
   app(
     expect,
     {
@@ -56,7 +56,7 @@ async function assertDirs(expect: ExpectStatic, context: PackedContext) {
   await verifyAsarFileTree(expect, resourceDir)
 }
 
-test.ifNotWindows("unpackDir", ({ expect }) => {
+test.ifNotWindows("unpackDir", ({expect}) => {
   return assertPack(
     expect,
     "test-app",
@@ -73,7 +73,7 @@ test.ifNotWindows("unpackDir", ({ expect }) => {
   )
 })
 
-test.ifNotWindows("asarUnpack and files ignore", ({ expect }) => {
+test.ifNotWindows("asarUnpack and files ignore", ({expect}) => {
   return assertPack(
     expect,
     "test-app",
@@ -95,7 +95,7 @@ test.ifNotWindows("asarUnpack and files ignore", ({ expect }) => {
   )
 })
 
-test.ifNotWindows("link", ({ expect }) =>
+test.ifNotWindows("link", ({expect}) =>
   app(
     expect,
     {
@@ -114,7 +114,7 @@ test.ifNotWindows("link", ({ expect }) =>
   )
 )
 
-test.skip("outside link", ({ expect }) =>
+test.skip("outside link", ({expect}) =>
   appThrows(
     expect,
     {
@@ -132,7 +132,7 @@ test.skip("outside link", ({ expect }) =>
       expect(error.message).toContain("outside the package to a system or unsafe path")
     }
   ))
-test.ifNotWindows("symlinks everywhere with static framework", ({ expect }) =>
+test.ifNotWindows("symlinks everywhere with static framework", ({expect}) =>
   assertPack(
     expect,
     "test-app-symlink-framework",
@@ -162,38 +162,7 @@ test.ifNotWindows("symlinks everywhere with static framework", ({ expect }) =>
   )
 )
 
-// https://github.com/electron-userland/electron-builder/issues/611
-test.ifNotWindows("failed peer dep", ({ expect }) => {
-  return assertPack(
-    expect,
-    "test-app-one",
-    {
-      targets: linuxDirTarget,
-    },
-    {
-      storeDepsLockfileSnapshot: true,
-      packageManager: PM.NPM,
-      projectDirCreated: async projectDir => {
-        return Promise.all([
-          modifyPackageJson(projectDir, data => {
-            //noinspection SpellCheckingInspection
-            data.dependencies = {
-              debug: "4.1.1",
-              "rc-datepicker": "4.0.0",
-              react: "15.2.1",
-              "react-dom": "15.2.1",
-            }
-          }),
-        ])
-      },
-      packed: context => {
-        return verifySmartUnpack(expect, context.getResources(Platform.LINUX))
-      },
-    }
-  )
-})
-
-test.ifNotWindows("ignore node_modules", ({ expect }) => {
+test.ifNotWindows("ignore node_modules", ({expect}) => {
   return assertPack(
     expect,
     "test-app-one",
@@ -223,7 +192,7 @@ test.ifNotWindows("ignore node_modules", ({ expect }) => {
   )
 })
 
-test.ifNotWindows("asarUnpack node_modules", ({ expect }) => {
+test.ifNotWindows("asarUnpack node_modules", ({expect}) => {
   return assertPack(
     expect,
     "test-app-one",

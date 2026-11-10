@@ -70,7 +70,9 @@ async function main() {
 
     printConsoleTrace: true,
     runner: __dirname + "/vitest-network-retry-runner.ts",
-    reporters: ["default", __dirname + "/vitest-smart-reporter.ts"],
+    reporters: ["tree",
+      // __dirname + "/vitest-smart-reporter.ts"
+    ],
 
     // 2 on Windows (heavy MSI/Squirrel builds saturate the vitest main-thread RPC at 3); 3 elsewhere
     maxWorkers: process.platform === "win32" ? 2 : 3,

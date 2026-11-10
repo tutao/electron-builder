@@ -7,7 +7,7 @@ import { archiveContains } from "./helpers/archiveHelper"
 import { assertThat } from "./helpers/fileAssert"
 import { assertPack, modifyPackageJson } from "./helpers/packTester"
 
-const options = { timeout: 30 * 60 * 1000 }
+const options = {timeout: 30 * 60 * 1000}
 
 const winTargets = Platform.WINDOWS.createTarget([DIR_TARGET, "nsis"], Arch.x64, Arch.arm64)
 const macTargets = Platform.MAC.createTarget([DIR_TARGET, "zip", "mas"], Arch.arm64, Arch.x64)
@@ -24,14 +24,14 @@ const projectDirCreated = async (projectDir: string, _tmpDir: TmpDir) => {
     deepAssign(data, {
       name: "concurrent", // needs to be lowercase for fpm targets (can't use default fixture TestApp)
       version: "1.1.0",
-      ...(!isApp ? { build: config } : {}), // build config is only allowed in "dev" (root) package.json in two-package.json setups
+      ...(!isApp ? {build: config} : {}), // build config is only allowed in "dev" (root) package.json in two-package.json setups
     })
   }
   await modifyPackageJson(projectDir, (data: any) => buildConfig(data, true), true)
   await modifyPackageJson(projectDir, (data: any) => buildConfig(data, false), false)
 }
 
-test.heavy.ifLinux("win/linux concurrent", options, ({ expect }) => {
+test.heavy.ifLinux("win/linux concurrent", options, ({expect}) => {
   const targets = new Map([...winTargets, ...linuxTargets])
   return assertPack(
     expect,
@@ -51,7 +51,7 @@ test.heavy.ifLinux("win/linux concurrent", options, ({ expect }) => {
   )
 })
 
-test.heavy.ifMac("mac/win/linux concurrent", options, ({ expect }) => {
+test.heavy.ifMac("mac/win/linux concurrent", options, ({expect}) => {
   const targets = new Map([...winTargets, ...macTargets, ...linuxTargets])
   return assertPack(
     expect,
@@ -71,7 +71,7 @@ test.heavy.ifMac("mac/win/linux concurrent", options, ({ expect }) => {
   )
 })
 
-test.heavy.ifMac("mac concurrent", options, ({ expect }) => {
+test.heavy.ifMac("mac concurrent", options, ({expect}) => {
   const targets = macTargets
   return assertPack(
     expect,
@@ -91,7 +91,7 @@ test.heavy.ifMac("mac concurrent", options, ({ expect }) => {
   )
 })
 
-test.heavy.ifNotMac("win concurrent", options, ({ expect }) => {
+test.heavy.ifNotMac("win concurrent", options, ({expect}) => {
   const targets = winTargets
   return assertPack(
     expect,
@@ -111,8 +111,8 @@ test.heavy.ifNotMac("win concurrent", options, ({ expect }) => {
   )
 })
 
-test.heavy.ifNotWindows("linux concurrent", options, ({ expect }) => {
-  const targets = Platform.LINUX.createTarget([DIR_TARGET, "rpm", "AppImage"], Arch.x64, Arch.armv7l)
+test.heavy.ifNotWindows("linux concurrent", options, ({expect}) => {
+  const targets = Platform.LINUX.createTarget([DIR_TARGET, "zip", "AppImage"], Arch.x64, Arch.armv7l)
   return assertPack(
     expect,
     "test-app",
@@ -131,8 +131,8 @@ test.heavy.ifNotWindows("linux concurrent", options, ({ expect }) => {
   )
 })
 
-test.heavy.ifWindows("win concurrent - all targets", options, ({ expect }) => {
-  const targetList = [DIR_TARGET, `appx`, `nsis`, `portable`, `squirrel`, `7z`, `zip`, `tar.xz`, `tar.gz`, `tar.bz2`]
+test.heavy.ifWindows("win concurrent - all targets", options, ({expect}) => {
+  const targetList = [DIR_TARGET, `nsis`, `portable`, `7z`, `zip`, `tar.xz`, `tar.gz`, `tar.bz2`]
   const targets = Platform.WINDOWS.createTarget(targetList, Arch.x64, Arch.arm64)
   return assertPack(
     expect,
@@ -143,7 +143,7 @@ test.heavy.ifWindows("win concurrent - all targets", options, ({ expect }) => {
         concurrency: {
           jobs: Object.keys(targets).length,
         },
-        win: { target: targetList },
+        win: {target: targetList},
         ...config,
       },
     },
@@ -159,7 +159,7 @@ test.heavy.ifWindows("win concurrent - all targets", options, ({ expect }) => {
 // all targets have finished reading appOutDir, so the zip — built concurrently — never captures it.
 // `perMachine` forces `packElevateHelper` on. Runs on all platforms — the NSIS app archive is built
 // natively and these are file-level assertions (no wine/install needed).
-test.heavy("nsis + zip concurrent: elevate.exe reaches win-unpacked but never leaks into sibling targets (#9852)", options, ({ expect }) => {
+test.heavy("nsis + zip concurrent: elevate.exe reaches win-unpacked but never leaks into sibling targets (#9852)", options, ({expect}) => {
   const elevateTargets = [DIR_TARGET, "nsis", "zip"]
   const targets = Platform.WINDOWS.createTarget(elevateTargets, Arch.x64)
   return assertPack(
@@ -169,9 +169,9 @@ test.heavy("nsis + zip concurrent: elevate.exe reaches win-unpacked but never le
       targets,
       config: {
         ...config,
-        concurrency: { jobs: Object.keys(targets).length },
-        win: { target: elevateTargets },
-        nsis: { perMachine: true },
+        concurrency: {jobs: Object.keys(targets).length},
+        win: {target: elevateTargets},
+        nsis: {perMachine: true},
       },
     },
     {

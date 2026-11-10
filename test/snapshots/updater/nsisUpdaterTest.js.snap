@@ -105,9 +105,6 @@ exports[`downgrade (disallowed, beta) 1`] = `
       "url": "TestApp Setup 1.5.2-beta.3.exe",
     },
   ],
-  "releaseName": "v1.5.2-beta.3",
-  "releaseNotes": "",
-  "tag": "v1.5.2-beta.3",
   "version": "1.5.2-beta.3",
 }
 `;

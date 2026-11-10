@@ -1,4 +1,5 @@
 import { checkBuildRequestOptions } from "app-builder-lib"
+import { PM } from "app-builder-lib/out/node-module-collector/packageManager"
 import { doMergeConfigs } from "app-builder-lib/out/util/config/config"
 import { Arch, createTargets, DIR_TARGET, Platform } from "electron-builder"
 import { createYargs } from "electron-builder/out/builder"
@@ -8,11 +9,10 @@ import * as path from "path"
 import { app, appTwo, appTwoThrows, assertPack, getFixtureDir, linuxDirTarget, modifyPackageJson, packageJson, toSystemIndependentPath } from "./helpers/packTester"
 import { ELECTRON_VERSION } from "./helpers/testConfig"
 import { verifySmartUnpack } from "./helpers/verifySmartUnpack"
-import { PM } from "app-builder-lib/out/node-module-collector/packageManager"
 
-test.ifLinux("cli", ({ expect }) => {
+test.ifLinux("cli", ({expect}) => {
   // because these methods are internal
-  const { configureBuildCommand, normalizeOptions } = require("electron-builder/out/builder")
+  const {configureBuildCommand, normalizeOptions} = require("electron-builder/out/builder")
   const yargs = createYargs()
   configureBuildCommand(yargs)
 
@@ -25,11 +25,11 @@ test.ifLinux("cli", ({ expect }) => {
   expect(parse("-owl --x64 --ia32"))
   expect(parse("-mwl --x64 --ia32"))
 
-  expect(parse("--dir")).toMatchObject({ targets: Platform.current().createTarget(DIR_TARGET) })
+  expect(parse("--dir")).toMatchObject({targets: Platform.current().createTarget(DIR_TARGET)})
   expect(parse("--mac --dir")).toMatchSnapshot()
-  expect(parse("--x64 --dir")).toMatchObject({ targets: Platform.current().createTarget(DIR_TARGET, Arch.x64) })
+  expect(parse("--x64 --dir")).toMatchObject({targets: Platform.current().createTarget(DIR_TARGET, Arch.x64)})
 
-  expect(parse("--ia32 --x64")).toMatchObject({ targets: Platform.current().createTarget(null, Arch.x64, Arch.ia32) })
+  expect(parse("--ia32 --x64")).toMatchObject({targets: Platform.current().createTarget(null, Arch.x64, Arch.ia32)})
   expect(parse("--linux")).toMatchSnapshot()
   expect(parse("--win")).toMatchSnapshot()
   expect(parse("-owl")).toMatchSnapshot()
@@ -50,7 +50,7 @@ test.ifLinux("cli", ({ expect }) => {
   })
 })
 
-test("merge configurations", ({ expect }) => {
+test("merge configurations", ({expect}) => {
   const result = doMergeConfigs([
     {
       files: [
@@ -112,10 +112,10 @@ test("merge configurations", ({ expect }) => {
   })
 })
 
-test("build in the app package.json", ({ expect }) =>
+test("build in the app package.json", ({expect}) =>
   appTwoThrows(
     expect,
-    { targets: linuxDirTarget },
+    {targets: linuxDirTarget},
     {
       projectDirCreated: it =>
         modifyPackageJson(
@@ -130,7 +130,7 @@ test("build in the app package.json", ({ expect }) =>
     }
   ))
 
-test("relative index", ({ expect }) =>
+test("relative index", ({expect}) =>
   appTwo(
     expect,
     {
@@ -148,7 +148,7 @@ test("relative index", ({ expect }) =>
     }
   ))
 
-it.ifNotWindows("electron version from electron-prebuilt dependency", ({ expect }) =>
+it.ifNotWindows("electron version from electron-prebuilt dependency", ({expect}) =>
   app(
     expect,
     {
@@ -169,7 +169,7 @@ it.ifNotWindows("electron version from electron-prebuilt dependency", ({ expect 
   )
 )
 
-test.ifNotWindows("electron version from electron dependency", ({ expect }) =>
+test.ifNotWindows("electron version from electron dependency", ({expect}) =>
   app(
     expect,
     {
@@ -190,7 +190,7 @@ test.ifNotWindows("electron version from electron dependency", ({ expect }) =>
   )
 )
 
-test.ifNotWindows("electron version from build", ({ expect }) =>
+test.ifNotWindows("electron version from build", ({expect}) =>
   app(
     expect,
     {
@@ -206,7 +206,7 @@ test.ifNotWindows("electron version from build", ({ expect }) =>
   )
 )
 
-test("www as default dir", ({ expect }) =>
+test("www as default dir", ({expect}) =>
   appTwo(
     expect,
     {
@@ -217,7 +217,7 @@ test("www as default dir", ({ expect }) =>
     }
   ))
 
-test.ifNotWindows("hooks as functions", ({ expect }) => {
+test.ifNotWindows("hooks as functions", ({expect}) => {
   let artifactBuildStartedCalled = 0
   let artifactBuildCompletedCalled = 0
   let beforePackCalled = 0
@@ -263,7 +263,7 @@ test.ifNotWindows("hooks as functions", ({ expect }) => {
   )
 })
 
-test.ifNotWindows("hooks as file - cjs", async ({ expect }) => {
+test.ifNotWindows("hooks as file - cjs", async ({expect}) => {
   const hookScript = path.join(getFixtureDir(), "build-hook.cjs")
   return assertPack(expect, "test-app-one", {
     targets: createTargets([Platform.LINUX, Platform.MAC], "zip", "x64"),
@@ -277,7 +277,7 @@ test.ifNotWindows("hooks as file - cjs", async ({ expect }) => {
   })
 })
 
-test.ifNotWindows("hooks as file - mjs exported functions", async ({ expect }) => {
+test.ifNotWindows("hooks as file - mjs exported functions", async ({expect}) => {
   const hookScript = path.join(getFixtureDir(), "build-hook.mjs")
   return assertPack(expect, "test-app-one", {
     targets: createTargets([Platform.LINUX, Platform.MAC], "zip", "x64"),
@@ -291,7 +291,7 @@ test.ifNotWindows("hooks as file - mjs exported functions", async ({ expect }) =
   })
 })
 
-test.ifWindows("afterSign", ({ expect }) => {
+test.ifWindows("afterSign", ({expect}) => {
   let called = 0
   return assertPack(
     expect,
@@ -315,7 +315,7 @@ test.ifWindows("afterSign", ({ expect }) => {
   )
 })
 
-test.ifNotWindows("beforeBuild", ({ expect }) => {
+test.ifNotWindows("beforeBuild", ({expect}) => {
   let called = 0
   return assertPack(
     expect,
@@ -340,7 +340,7 @@ test.ifNotWindows("beforeBuild", ({ expect }) => {
 })
 
 // https://github.com/electron-userland/electron-builder/issues/1738
-test.ifNotWindows("win smart unpack", ({ expect }) => {
+test.ifNotWindows("win smart unpack", ({expect}) => {
   // test onNodeModuleFile hook
   const nodeModuleFiles: Array<string> = []
   let p = ""
@@ -381,7 +381,7 @@ test.ifNotWindows("win smart unpack", ({ expect }) => {
   )
 })
 
-test("smart unpack local module with dll file", ({ expect }) => {
+test("smart unpack local module with dll file", ({expect}) => {
   return app(
     expect,
     {
@@ -417,7 +417,7 @@ test("smart unpack local module with dll file", ({ expect }) => {
 })
 
 // https://github.com/electron-userland/electron-builder/issues/1738
-test.ifNotWindows("posix smart unpack", ({ expect }) =>
+test.ifNotWindows("posix smart unpack", ({expect}) =>
   app(
     expect,
     {
@@ -448,6 +448,8 @@ test.ifNotWindows("posix smart unpack", ({ expect }) =>
             "edge-cs": "1.2.1",
             keytar: "7.9.0",
             three: "0.160.0",
+            // node-abi has a non-exact dependency on semver and it's breaking things
+            semver: "7.8.5",
           }
         })(projectDir)
       },

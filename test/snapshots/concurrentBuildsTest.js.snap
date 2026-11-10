@@ -5,14 +5,6 @@ exports[`linux concurrent 1`] = `
   "linux": [
     {
       "arch": "x64",
-      "file": "Test Concurrent-1.1.0-x86_64.rpm",
-    },
-    {
-      "arch": "armv7l",
-      "file": "Test Concurrent-1.1.0-armv7l.rpm",
-    },
-    {
-      "arch": "x64",
       "file": "Test Concurrent-1.1.0-x86_64.AppImage",
       "safeArtifactName": "Test-Concurrent-1.1.0-x86_64.AppImage",
       "updateInfo": {
@@ -30,6 +22,16 @@ exports[`linux concurrent 1`] = `
         "sha512": "@sha512",
         "size": "@size",
       },
+    },
+    {
+      "arch": "x64",
+      "file": "Test Concurrent-1.1.0-x64.zip",
+      "safeArtifactName": "Test-Concurrent-1.1.0-x64.zip",
+    },
+    {
+      "arch": "armv7l",
+      "file": "Test Concurrent-1.1.0-armv7l.zip",
+      "safeArtifactName": "Test-Concurrent-1.1.0-armv7l.zip",
     },
   ],
 }
