@@ -8,11 +8,11 @@ import { move } from "fs-extra"
 import * as path from "path"
 import { TmpDir } from "temp-file"
 import { ExpectStatic } from "vitest"
-import { mockForNodeRequire } from "vitest-mock-commonjs"
 import { createLocalServer } from "../helpers/launchAppCrossPlatform"
 import { assertPack, PackedContext, removeUnstableProperties } from "../helpers/packTester"
 import { TestAppAdapter } from "../helpers/TestAppAdapter"
 import { NEW_VERSION_NUMBER, OLD_VERSION_NUMBER, tuneTestUpdater, writeUpdateConfig } from "../helpers/updaterTestUtil"
+import mockForNodeRequire from "./vitest-mock-commonjs"
 
 export async function doBuild(
   expect: ExpectStatic,
@@ -55,14 +55,15 @@ export async function doBuild(
 
   const build = (version: string) =>
     buildApp(version, targets, extraConfig, async context => {
-      const newDir = await tmpDir.getTempDir({ prefix: version })
+      const newDir = await tmpDir.getTempDir({prefix: version})
       await move(context.outDir, newDir)
       outDirs.push(newDir)
     })
   try {
     await build(OLD_VERSION_NUMBER)
     await build(NEW_VERSION_NUMBER)
-  } catch (e: any) {
+  }
+  catch (e: any) {
     await tmpDir.cleanup()
     throw e
   }
@@ -96,12 +97,15 @@ class TestNativeUpdater extends EventEmitter {
     // MacUpdater expects this to emit corresponding update-downloaded event
     this.emit("update-downloaded")
   }
+
   setFeedURL(updateConfig: any) {
     console.log("TestNativeUpdater.setFeedURL " + updateConfig.url)
   }
+
   getFeedURL() {
     console.log("TestNativeUpdater.getFeedURL")
   }
+
   quitAndInstall() {
     console.log("TestNativeUpdater.quitAndInstall")
   }
@@ -112,7 +116,7 @@ export async function testBlockMap(expect: ExpectStatic, oldDir: string, newDir:
     `${platform.buildConfigurationKey}${getArchSuffix(arch)}${platform === Platform.MAC ? "" : "-unpacked"}`,
     platform === Platform.MAC ? `${productFilename}.app` : ""
   )
-  const { server, port } = await createLocalServer(newDir)
+  const {server, port} = await createLocalServer(newDir)
 
   // Mac uses electron's native autoUpdater to serve updates to, we mock here since electron API isn't available within jest runtime
   const mockNativeUpdater = new TestNativeUpdater()
@@ -168,11 +172,12 @@ export async function testLinux(expect: ExpectStatic, arch: Arch, toolset: Tools
   const outDirs: Array<string> = []
   const tmpDir = new TmpDir("differential-updater-test")
   try {
-    await doBuild(expect, outDirs, Platform.LINUX.createTarget(["appimage"], arch), tmpDir, { appimage: toolset })
+    await doBuild(expect, outDirs, Platform.LINUX.createTarget(["appimage"], arch), tmpDir, {appimage: toolset})
 
     process.env.APPIMAGE = path.join(outDirs[0], `Test App ßW-${OLD_VERSION_NUMBER}${arch === Arch.ia32 ? "-i386" : ""}.AppImage`)
     await testBlockMap(expect, outDirs[0], outDirs[1], AppImageUpdater, Platform.LINUX, arch)
-  } finally {
+  }
+  finally {
     await tmpDir.cleanup()
   }
 }

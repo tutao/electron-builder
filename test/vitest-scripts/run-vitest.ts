@@ -34,7 +34,7 @@ async function main() {
   if (expectedShardCount != null && expectedShardCount !== shardCount) {
     console.error(
       `Error: Shard plan mismatch: the CI matrix was planned with ${expectedShardCount} shard(s) but this job computed ${shardCount}. ` +
-        `The planner and this job must use the same smart cache (VITEST_SMART_CACHE_SOURCE=${process.env.VITEST_SMART_CACHE_SOURCE || "<unset>"}) and the same test file list.`
+      `The planner and this job must use the same smart cache (VITEST_SMART_CACHE_SOURCE=${process.env.VITEST_SMART_CACHE_SOURCE || "<unset>"}) and the same test file list.`
     )
     process.exit(1)
   }
@@ -70,7 +70,10 @@ async function main() {
 
     printConsoleTrace: true,
     runner: __dirname + "/vitest-network-retry-runner.ts",
-    reporters: ["tree",
+    reporters: [
+      "default",
+      //  ["html", {singleFile: true}],
+      ["json", { outputFile: "test-result.json" }]
       // __dirname + "/vitest-smart-reporter.ts"
     ],
 

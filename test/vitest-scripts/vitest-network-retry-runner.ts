@@ -1,5 +1,4 @@
-import { VitestTestRunner } from "vitest/runners"
-import { getFn, setFn } from "vitest/suite"
+import { TestRunner } from "vitest"
 
 // EPIPE is normal when a CI pipe closes before all output is flushed; suppress it.
 for (const stream of [process.stdout, process.stderr] as NodeJS.WriteStream[]) {
@@ -20,21 +19,23 @@ function isNetworkError(error: unknown): boolean {
   return NETWORK_PATTERNS.some(p => p.test(message))
 }
 
-export default class NetworkRetryRunner extends VitestTestRunner {
+export default class NetworkRetryRunner extends TestRunner {
   override async onBeforeRunTask(test: any): Promise<void> {
     await super.onBeforeRunTask(test)
 
-    const originalFn = getFn(test)
+    const originalFn = TestRunner.getTestFn(test)
     if (!originalFn) {
       return
     }
 
-    setFn(test, async () => {
+    // vitest 4 types setTestFn as a 1-arg getter (typeof getFn) but the setter form is still valid at runtime
+    ;(TestRunner.setTestFn as unknown as (task: any, fn: () => Promise<void>) => void)(test, async () => {
       for (let attempt = 0; attempt <= MAX_NETWORK_RETRIES; attempt++) {
         try {
           await originalFn()
           return
-        } catch (e) {
+        }
+        catch (e) {
           if (!isNetworkError(e) || attempt === MAX_NETWORK_RETRIES) {
             throw e
           }

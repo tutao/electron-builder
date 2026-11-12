@@ -1,9 +1,11 @@
 import { configureRequestOptionsFromUrl, GenericServerOptions } from "builder-util-runtime"
 import { MacUpdater } from "electron-updater/out/MacUpdater"
 import { EventEmitter } from "events"
-import { mockForNodeRequire } from "vitest-mock-commonjs"
 import { assertThat } from "../helpers/fileAssert"
 import { createTestAppAdapter, httpExecutor, trackEvents, tuneTestUpdater, writeUpdateConfig } from "../helpers/updaterTestUtil"
+import mockForNodeRequire from "./vitest-mock-commonjs"
+
+
 
 class TestNativeUpdater extends EventEmitter {
   private updateUrl: string | null = null

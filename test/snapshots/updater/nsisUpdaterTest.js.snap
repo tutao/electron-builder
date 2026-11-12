@@ -172,44 +172,6 @@ exports[`file url generic 2`] = `
 ]
 `;
 
-exports[`file url github 1`] = `
-{
-  "files": [
-    {
-      "sha512": "xrTrW8dzWYlPnu71Y4lpLIAuIurBZJvZmqEZyz1rzM3CbbE1Z+T+P5qYYZgwmhmXdYPOpvnmYKa0HGdgXggwtQ==",
-      "url": "TestApp-Setup-1.1.0.exe",
-    },
-  ],
-  "releaseName": "1.1.0",
-  "releaseNotes": "",
-  "tag": "v1.1.0",
-  "version": "1.1.0",
-}
-`;
-
-exports[`file url github 2`] = `
-{
-  "files": [
-    {
-      "sha512": "xrTrW8dzWYlPnu71Y4lpLIAuIurBZJvZmqEZyz1rzM3CbbE1Z+T+P5qYYZgwmhmXdYPOpvnmYKa0HGdgXggwtQ==",
-      "url": "TestApp-Setup-1.1.0.exe",
-    },
-  ],
-  "releaseName": "1.1.0",
-  "releaseNotes": "",
-  "tag": "v1.1.0",
-  "version": "1.1.0",
-}
-`;
-
-exports[`file url github 3`] = `
-[
-  "checking-for-update",
-  "update-available",
-  "update-downloaded",
-]
-`;
-
 exports[`file url github pre-release and fullChangelog 1`] = `
 {
   "files": [
@@ -367,86 +329,6 @@ exports[`file url github private 1`] = `
 `;
 
 exports[`file url github private 2`] = `
-[
-  "checking-for-update",
-  "update-available",
-  "update-downloaded",
-]
-`;
-
-exports[`file url gitlab 1`] = `
-{
-  "assets": Map {
-    "gitlab-electron-updater-test-Setup-1.1.0.exe" => "https://gitlab.com/-/project/71361100/uploads/d3fde3ec8e71fcd9a76e8427e830a7af/gitlab-electron-updater-test_Setup_1.1.0.exe",
-    "latest.yml" => "https://gitlab.com/-/project/71361100/uploads/e246e04737d0e072fedd0308a7fe0f4d/latest.yml",
-    "gitlab-electron-updater-test-Setup-1.1.0.exe.blockmap" => "https://gitlab.com/-/project/71361100/uploads/6013e5381f7b2fc2c146221e1b13b83c/gitlab-electron-updater-test_Setup_1.1.0.exe.blockmap",
-  },
-  "files": [
-    {
-      "sha512": "U2PcXOrB3qOzUC/N+5tk6nBpIYG7X/EfbEkLDsl9kLk8XvKo+M+6/aJt1bsqt/ApxoM+CUAmR1CEe3jzOS5MSw==",
-      "size": 78213247,
-      "url": "gitlab-electron-updater-test-Setup-1.1.0.exe",
-    },
-  ],
-  "path": "gitlab-electron-updater-test-Setup-1.1.0.exe",
-  "releaseDate": "2025-07-23T05:19:36.866Z",
-  "releaseName": "Release v1.1.0",
-  "releaseNotes": "Automated release for v1.1.0",
-  "sha512": "U2PcXOrB3qOzUC/N+5tk6nBpIYG7X/EfbEkLDsl9kLk8XvKo+M+6/aJt1bsqt/ApxoM+CUAmR1CEe3jzOS5MSw==",
-  "tag": "v1.1.0",
-  "version": "1.1.0",
-}
-`;
-
-exports[`file url gitlab 2`] = `
-{
-  "assets": Map {
-    "gitlab-electron-updater-test-Setup-1.1.0.exe" => "https://gitlab.com/-/project/71361100/uploads/d3fde3ec8e71fcd9a76e8427e830a7af/gitlab-electron-updater-test_Setup_1.1.0.exe",
-    "latest.yml" => "https://gitlab.com/-/project/71361100/uploads/e246e04737d0e072fedd0308a7fe0f4d/latest.yml",
-    "gitlab-electron-updater-test-Setup-1.1.0.exe.blockmap" => "https://gitlab.com/-/project/71361100/uploads/6013e5381f7b2fc2c146221e1b13b83c/gitlab-electron-updater-test_Setup_1.1.0.exe.blockmap",
-  },
-  "files": [
-    {
-      "sha512": "U2PcXOrB3qOzUC/N+5tk6nBpIYG7X/EfbEkLDsl9kLk8XvKo+M+6/aJt1bsqt/ApxoM+CUAmR1CEe3jzOS5MSw==",
-      "size": 78213247,
-      "url": "gitlab-electron-updater-test-Setup-1.1.0.exe",
-    },
-  ],
-  "path": "gitlab-electron-updater-test-Setup-1.1.0.exe",
-  "releaseDate": "2025-07-23T05:19:36.866Z",
-  "releaseName": "Release v1.1.0",
-  "releaseNotes": "Automated release for v1.1.0",
-  "sha512": "U2PcXOrB3qOzUC/N+5tk6nBpIYG7X/EfbEkLDsl9kLk8XvKo+M+6/aJt1bsqt/ApxoM+CUAmR1CEe3jzOS5MSw==",
-  "tag": "v1.1.0",
-  "version": "1.1.0",
-}
-`;
-
-exports[`file url gitlab 3`] = `
-[
-  "checking-for-update",
-  "update-available",
-  "update-downloaded",
-]
-`;
-
-exports[`file url keygen 1`] = `
-{
-  "files": [
-    {
-      "sha512": "r0NdvVubzJWAN56nqjTdLkBWV/dq0HQOKz9A6QFplUozu3uSVXA2t731miy/S29mY4MD18iLxKD6GXnPfNNbNw==",
-      "size": 59865147,
-      "url": "electron-quick-start-typescript-1.0.0-x64.exe",
-    },
-  ],
-  "path": "electron-quick-start-typescript-1.0.0-x64.exe",
-  "releaseDate": "2021-08-19T04:34:01.089Z",
-  "sha512": "r0NdvVubzJWAN56nqjTdLkBWV/dq0HQOKz9A6QFplUozu3uSVXA2t731miy/S29mY4MD18iLxKD6GXnPfNNbNw==",
-  "version": "1.0.0",
-}
-`;
-
-exports[`file url keygen 2`] = `
 [
   "checking-for-update",
   "update-available",
@@ -641,9 +523,6 @@ exports[`valid signature - multiple publisher DNs 1`] = `
       "url": "TestApp-Setup-1.1.0.exe",
     },
   ],
-  "releaseName": "1.1.0",
-  "releaseNotes": "",
-  "tag": "v1.1.0",
   "version": "1.1.0",
 }
 `;
@@ -664,9 +543,6 @@ exports[`valid signature 1`] = `
       "url": "TestApp-Setup-1.1.0.exe",
     },
   ],
-  "releaseName": "1.1.0",
-  "releaseNotes": "",
-  "tag": "v1.1.0",
   "version": "1.1.0",
 }
 `;
@@ -687,9 +563,6 @@ exports[`valid signature using DN 1`] = `
       "url": "TestApp-Setup-1.1.0.exe",
     },
   ],
-  "releaseName": "1.1.0",
-  "releaseNotes": "",
-  "tag": "v1.1.0",
   "version": "1.1.0",
 }
 `;

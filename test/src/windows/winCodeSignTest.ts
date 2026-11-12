@@ -14,7 +14,7 @@ import { app, appThrows } from "../helpers/packTester"
 type SignIfResult = { file: string; ok: boolean }
 
 const signtoolBaseConfig: Configuration = {
-  toolsets: { winCodeSign: "1.1.0" },
+  toolsets: {winCodeSign: "1.1.0"},
   win: {
     signtoolOptions: {
       certificateFile: "secretFile",
@@ -35,8 +35,8 @@ function makeSignQueueTestPackager(signIfResults: SignIfResult[]) {
       await Promise.all(
         files.map(f =>
           this.signIf(f).then(
-            () => signIfResults.push({ file: path.basename(f), ok: true }),
-            () => signIfResults.push({ file: path.basename(f), ok: false })
+            () => signIfResults.push({file: path.basename(f), ok: true}),
+            () => signIfResults.push({file: path.basename(f), ok: false})
           )
         )
       )
@@ -62,13 +62,13 @@ function makeSequentialSignTestPackager() {
   }
 }
 
-test("parseDn", ({ expect }) => {
+test("parseDn", ({expect}) => {
   expect(parseDn("CN=7digital Limited, O=7digital Limited, L=London, C=GB")).toMatchSnapshot()
 
-  expect(load("publisherName:\n  - 7digital Limited")).toMatchObject({ publisherName: ["7digital Limited"] })
+  expect(load("publisherName:\n  - 7digital Limited")).toMatchObject({publisherName: ["7digital Limited"]})
 })
 
-test("parseDn decodes escaped characters", ({ expect }) => {
+test("parseDn decodes escaped characters", ({expect}) => {
   // a "\\+" escape followed by a hex digit, and UTF-8 hex pairs as `openssl x509 -nameopt RFC2253` prints them
   const dn = parseDn("CN=Acme\\+Bolt Caf\\C3\\A9, O=Acme, C=FR")
   expect(dn.get("CN")).toEqual("Acme+Bolt Café")
@@ -76,13 +76,13 @@ test("parseDn decodes escaped characters", ({ expect }) => {
   expect(dn.get("C")).toEqual("FR")
 })
 
-test("parseDn decodes single-byte hex escapes that are not UTF-8 as Latin-1", ({ expect }) => {
+test("parseDn decodes single-byte hex escapes that are not UTF-8 as Latin-1", ({expect}) => {
   expect(parseDn("CN=M\\FCller").get("CN")).toEqual("Müller")
   expect(parseDn("CN=Caf\\E9").get("CN")).toEqual("Café")
   expect(parseDn("CN=Caf\\C3\\A9").get("CN")).toEqual("Café")
 })
 
-test("parseDn decodes a hex escape run mixing UTF-8 and Latin-1 per sequence", ({ expect }) => {
+test("parseDn decodes a hex escape run mixing UTF-8 and Latin-1 per sequence", ({expect}) => {
   expect(parseDn("CN=Caf\\C3\\A9\\FC").get("CN")).toEqual("Caféü")
   expect(parseDn("CN=\\FC\\C3\\A9").get("CN")).toEqual("üé")
   // a truncated UTF-8 sequence falls back to Latin-1
@@ -91,11 +91,12 @@ test("parseDn decodes a hex escape run mixing UTF-8 and Latin-1 per sequence", (
 
 const windowsDirTarget = Platform.WINDOWS.createTarget(["dir"])
 
-const winCodeSignVersions: ToolsetConfig["winCodeSign"][] = ["0.0.0", "1.0.0", "1.1.0"]
+// tutao: change to only use the latest version because of dependency on ancient libcrypto
+const winCodeSignVersions: ToolsetConfig["winCodeSign"][] = ["1.3.3"]
 
 for (const winCodeSign of winCodeSignVersions) {
-  describe(`winCodeSign: ${winCodeSign}`, { sequential: true }, () => {
-    test("sign nested asar unpacked executables", ({ expect }) =>
+  describe(`winCodeSign: ${winCodeSign}`, {sequential: true}, () => {
+    test("sign nested asar unpacked executables", ({expect}) =>
       appThrows(
         expect,
         {
@@ -124,6 +125,7 @@ for (const winCodeSign of winCodeSignVersions) {
               break
             case "1.0.0":
             case "1.1.0":
+            case "1.3.3":
               if (process.platform !== "win32") {
                 message = "Initialization error or unsupported input file type."
               }
@@ -155,15 +157,15 @@ for (const winCodeSign of winCodeSignVersions) {
       })
     }
 
-    test("certificateFile/password - sign as async/await", ({ expect }) =>
+    test("certificateFile/password - sign as async/await", ({expect}) =>
       testCustomSign(expect, async () => {
         return Promise.resolve()
       }))
-    test("certificateFile/password - sign as Promise", ({ expect }) => testCustomSign(expect, () => Promise.resolve()))
-    test("certificateFile/password - sign as function", async ({ expect }) => testCustomSign(expect, (await import("../helpers/customWindowsSign")).default))
-    test("certificateFile/password - sign as path", ({ expect }) => testCustomSign(expect, path.join(__dirname, "../helpers/customWindowsSign.mjs")))
+    test("certificateFile/password - sign as Promise", ({expect}) => testCustomSign(expect, () => Promise.resolve()))
+    test("certificateFile/password - sign as function", async ({expect}) => testCustomSign(expect, (await import("../helpers/customWindowsSign")).default))
+    test("certificateFile/password - sign as path", ({expect}) => testCustomSign(expect, path.join(__dirname, "../helpers/customWindowsSign.mjs")))
 
-    test("custom sign can call getToolPath() via packager.signingManager", ({ expect }) => {
+    test("custom sign can call getToolPath() via packager.signingManager", ({expect}) => {
       let capturedToolInfo: ToolInfo | null = null
       const sign: CustomWindowsSign = async (_config, packager) => {
         const manager = (await packager!.signingManager.value) as WindowsSignToolManager
@@ -175,7 +177,7 @@ for (const winCodeSign of winCodeSignVersions) {
           targets: Platform.WINDOWS.createTarget(DIR_TARGET),
           platformPackagerFactory: (packager, _platform) => new CheckingWinPackager(packager),
           config: {
-            toolsets: { winCodeSign },
+            toolsets: {winCodeSign},
             win: {
               forceCodeSigning: true,
               signtoolOptions: {
@@ -198,7 +200,7 @@ for (const winCodeSign of winCodeSignVersions) {
       )
     })
 
-    test("custom sign if no code sign info", ({ expect }) => {
+    test("custom sign if no code sign info", ({expect}) => {
       let called = false
       return app(
         expect,
@@ -230,7 +232,7 @@ for (const winCodeSign of winCodeSignVersions) {
       )
     })
 
-    test("forceCodeSigning", ({ expect }) =>
+    test("forceCodeSigning", ({expect}) =>
       appThrows(expect, {
         targets: windowsDirTarget,
         config: {
@@ -241,7 +243,7 @@ for (const winCodeSign of winCodeSignVersions) {
         },
       }))
 
-    test("electronDist", ({ expect }) =>
+    test("electronDist", ({expect}) =>
       appThrows(
         expect,
         {
@@ -257,7 +259,7 @@ for (const winCodeSign of winCodeSignVersions) {
         error => expect(error.message).toContain("Please provide a valid path to the Electron zip file, cache directory, or electron build directory.")
       ))
 
-    test.ifNotWindows("win code sign using pwsh", ({ expect }) =>
+    test.ifNotWindows("win code sign using pwsh", ({expect}) =>
       app(
         expect,
         {
@@ -278,7 +280,7 @@ for (const winCodeSign of winCodeSignVersions) {
 
 describe("signing queue", () => {
   describe("normal flow", () => {
-    test("signs all files when no errors occur", async ({ expect }) => {
+    test("signs all files when no errors occur", async ({expect}) => {
       let callCount = 0
       const results: SignIfResult[] = []
 
@@ -294,7 +296,7 @@ describe("signing queue", () => {
         platformPackagerFactory: (info, _platform) => new PackagerClass(info),
         config: {
           ...signtoolBaseConfig,
-          win: { signtoolOptions: { ...signtoolBaseConfig.win!.signtoolOptions, sign } },
+          win: {signtoolOptions: {...signtoolBaseConfig.win!.signtoolOptions, sign}},
         },
       })
 
@@ -307,7 +309,7 @@ describe("signing queue", () => {
   })
 
   describe("queue recovery", () => {
-    test("signs subsequent files after a transient rejection on file2", async ({ expect }) => {
+    test("signs subsequent files after a transient rejection on file2", async ({expect}) => {
       let callCount = 0
       const signedFiles: string[] = []
       const results: SignIfResult[] = []
@@ -328,7 +330,7 @@ describe("signing queue", () => {
         platformPackagerFactory: (info, _platform) => new PackagerClass(info),
         config: {
           ...signtoolBaseConfig,
-          win: { signtoolOptions: { ...signtoolBaseConfig.win!.signtoolOptions, sign } },
+          win: {signtoolOptions: {...signtoolBaseConfig.win!.signtoolOptions, sign}},
         },
       })
 
@@ -344,7 +346,7 @@ describe("signing queue", () => {
       expect(results.find(r => r.file === "file3.exe")?.ok).toBe(true)
     })
 
-    test("rejection propagates to caller even with forceCodeSigning enabled", async ({ expect }) => {
+    test("rejection propagates to caller even with forceCodeSigning enabled", async ({expect}) => {
       let callCount = 0
       const results: SignIfResult[] = []
 
@@ -364,7 +366,7 @@ describe("signing queue", () => {
         config: {
           ...signtoolBaseConfig,
           win: {
-            signtoolOptions: { ...signtoolBaseConfig.win!.signtoolOptions, sign },
+            signtoolOptions: {...signtoolBaseConfig.win!.signtoolOptions, sign},
             forceCodeSigning: true,
           },
         },
@@ -376,7 +378,7 @@ describe("signing queue", () => {
       expect(results.find(r => r.file === "file3.exe")?.ok).toBe(true)
     })
 
-    test("forceCodeSigning: true — transient error on any file propagates to a build failure", async ({ expect }) => {
+    test("forceCodeSigning: true — transient error on any file propagates to a build failure", async ({expect}) => {
       const sign: CustomWindowsSign = () => {
         throw new Error("transient signing error")
       }
@@ -391,7 +393,7 @@ describe("signing queue", () => {
           config: {
             ...signtoolBaseConfig,
             win: {
-              signtoolOptions: { ...signtoolBaseConfig.win!.signtoolOptions, sign },
+              signtoolOptions: {...signtoolBaseConfig.win!.signtoolOptions, sign},
               forceCodeSigning: true,
             },
           },

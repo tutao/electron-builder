@@ -1,5 +1,8 @@
 import type { Configuration } from "app-builder-lib"
 import type { Defines } from "app-builder-lib/src/targets/nsis/Defines"
+// load the package entry first: importing NsisTarget on its own enters the platformPackager <-> index
+// import cycle mid-way and LinuxPackager then extends an undefined PlatformPackager
+import "app-builder-lib/src"
 import { NsisTarget } from "app-builder-lib/src/targets/nsis/NsisTarget"
 import { AppPackageHelper, CopyElevateHelper } from "app-builder-lib/src/targets/nsis/nsisUtil"
 import { Arch, exists, log } from "builder-util"
@@ -7,9 +10,6 @@ import * as fs from "fs/promises"
 import * as os from "os"
 import * as path from "path"
 import { afterEach, beforeEach, vi } from "vitest"
-// load the package entry first: importing NsisTarget on its own enters the platformPackager <-> index
-// import cycle mid-way and LinuxPackager then extends an undefined PlatformPackager
-import "app-builder-lib/src"
 
 // `nsis.useZip` must pick the same format for the embedded app package (buildAppPackage) and for the
 // installer's extractor (ZIP_COMPRESSION / COMPRESSION_METHOD). NsisTarget is built over a minimal fake

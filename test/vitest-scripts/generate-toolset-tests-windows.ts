@@ -9,7 +9,7 @@ import type * as _WinPackagerSuite from "../src/windows/winPackagerTestSuite"
 import type { SuiteConfig } from "./generate-toolset-tests-shared"
 import { buildDescribeCall, cleanAndEnsureDir, GENERATED_TESTS_DIR, getPlatformSuffix, namedFn, resolveImportPath, TEST_SRC_DIR } from "./generate-toolset-tests-shared"
 
-const WIN_CODE_SIGN_VERSIONS: ToolsetConfig["winCodeSign"][] = ["0.0.0", "1.0.0", "1.1.0"]
+const WIN_CODE_SIGN_VERSIONS: ToolsetConfig["winCodeSign"][] = ["1.3.3"]// ["0.0.0", "1.0.0", "1.1.0"]
 const NSIS_VERSIONS: ToolsetConfig["nsis"][] = ["0.0.0", "1.2.1"]
 
 interface WindowsSuiteConfig extends SuiteConfig {
@@ -22,44 +22,44 @@ const SUITES: WindowsSuiteConfig[] = [
     name: "winPackager",
     registerFn: namedFn("registerWinPackagerTests" satisfies keyof typeof _WinPackagerSuite),
     importPath: "windows/winPackagerTestSuite",
-    describeConfig: { name: "winPackager" },
+    describeConfig: {name: "winPackager"},
     nsisVersions: NSIS_VERSIONS,
   },
   {
     name: "portable",
     registerFn: namedFn("registerPortableTests" satisfies keyof typeof _PortableSuite),
     importPath: "windows/portableTestSuite",
-    describeConfig: { name: "portable", chain: ["ifWindows"] },
+    describeConfig: {name: "portable", chain: ["ifWindows"]},
     nsisVersions: NSIS_VERSIONS,
   },
   {
     name: "assistedInstaller",
     registerFn: namedFn("registerAssistedInstallerTests" satisfies keyof typeof _AssistedInstallerSuite),
     importPath: "windows/assistedInstallerTestSuite",
-    describeConfig: { name: "assisted", chain: ["ifWindows"] },
+    describeConfig: {name: "assisted", chain: ["ifWindows"]},
     nsisVersions: NSIS_VERSIONS,
   },
   {
     name: "differentialWin",
     registerFn: namedFn("registerDifferentialWinTests" satisfies keyof typeof _DifferentialWinSuite),
     importPath: "updater/differentialUpdateWinSuite",
-    describeConfig: { name: "differential-win", chain: ["ifWindows"] },
-    describeOptions: { sequential: true },
+    describeConfig: {name: "differential-win", chain: ["ifWindows"]},
+    describeOptions: {sequential: true},
     nsisVersions: NSIS_VERSIONS,
   },
   {
     name: "blackboxWin",
     registerFn: namedFn("registerBlackboxWinTests" satisfies keyof typeof _BlackboxWinSuite),
     importPath: "updater/blackboxUpdateWinSuite",
-    describeConfig: { name: "blackboxWin" },
-    describeOptions: { sequential: true, retry: 1 },
+    describeConfig: {name: "blackboxWin"},
+    describeOptions: {sequential: true, retry: 1},
     nsisVersions: NSIS_VERSIONS,
   },
 ]
 
 function renderFile(suite: WindowsSuiteConfig, winCodeSign: ToolsetConfig["winCodeSign"], nsis?: ToolsetConfig["nsis"]): string {
   const fnName = suite.registerFn.name
-  const toolsets: Record<string, unknown> = { winCodeSign }
+  const toolsets: Record<string, unknown> = {winCodeSign}
   if (nsis !== undefined) {
     toolsets.nsis = nsis
   }
@@ -94,7 +94,8 @@ export function generateWindowsToolsetTests(): void {
           fs.writeFileSync(path.join(generatedDir, filename), renderFile(suite, wcs, nsis), "utf8")
         }
       }
-    } else {
+    }
+    else {
       for (const wcs of wcsVersions) {
         const filename = `${suite.name}__wcs-${wcs}${platformSuffix}Test.ts`
         fs.writeFileSync(path.join(generatedDir, filename), renderFile(suite, wcs), "utf8")

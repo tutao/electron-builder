@@ -5,7 +5,7 @@ import * as os from "os"
 import * as path from "path"
 import { getBinFromCustomLoc, getBinFromUrl } from "../binDownload"
 import { ToolsetConfig } from "../configuration"
-import { ToolInfo, computeToolEnv } from "../util/bundledTool"
+import { computeToolEnv, ToolInfo } from "../util/bundledTool"
 import { downloadBuilderToolset } from "../util/electronGet"
 import { isUseSystemSigncode } from "../util/flags"
 
@@ -13,10 +13,11 @@ function getLegacyWinCodeSignBin(): Promise<string> {
   return downloadBuilderToolset({
     releaseName: "winCodeSign-2.6.0",
     filenameWithExt: "winCodeSign-2.6.0.7z",
-    checksums: { ["winCodeSign-2.6.0.7z"]: "cdaec7154dda7cc31f88d886e2489379a0625a737d610b5ae7f62a12f16743a4" },
+    checksums: {["winCodeSign-2.6.0.7z"]: "cdaec7154dda7cc31f88d886e2489379a0625a737d610b5ae7f62a12f16743a4"},
   })
 }
 
+// FIXME: rip out old versions
 export const wincodesignChecksums = {
   "0.0.0": {
     // legacy — downloads winCodeSign-2.6.0 via getLegacyWinCodeSignBin()
@@ -41,6 +42,20 @@ export const wincodesignChecksums = {
     "win-codesign-windows-x64.zip": "6e5dcc5d7af7c00a7387e2101d1ad986aef80e963a3526da07bd0e65de484c30",
     "windows-kits-bundle-10_0_26100_0.zip": "284f18a2fde66e6ecfbefc3065926c9bfdf641761a9e6cd2bd26e18d1e328bf7",
   },
+  // backported from current master (2026-11-12) -- martin
+  "1.3.3": {
+    "ats-bundle-1_0_95.zip": "5695927ad1411f38e57fe1739475272192a6939f59c1e0525abc87b21f278035",
+    "dotnet-runtime-win-x64-8_0_33.zip": "2e26d49416b0a4bd29f3f11f36aa971439b5e741ff40513fb1bc738a7bf3fd89",
+    "rcedit-windows-2_0_0.zip": "99a37b6b54d0500b0ab9ca134b08a35faf8dfe4668b379c0091212815412504b",
+    "win-codesign-darwin-arm64.zip": "94dd0ecf145103fc9039e3b73ee8eb40a71a9a637203657d55415e9f4f48b9a3",
+    "win-codesign-darwin-x86_64.zip": "1b2f9300712e372ad2360c8cdd6cfaad9eabdc61cc95b26e68ea36be90ecc65f",
+    "win-codesign-linux-amd64.zip": "5b55fa4853df581ec1ebc53f98c0e41d642a58a876a45fe35c86246ee964a534",
+    "win-codesign-linux-arm64.zip": "a2e08d4a691429c92c3582d9d6d05fec67758e6e7c206e638f5d46d7a0c5c588",
+    "win-codesign-linux-i386.zip": "1bb4fa33ebd18c58cdb6a9f96b08664337584529a8e8182071780b1fc0caebb5",
+    "win-codesign-windows-arm64.zip": "49cb977a1f70c8bd5922db363ebc0736903f9574ab101ec39d943de45752baa7",
+    "win-codesign-windows-x64.zip": "dcbb852ca7186be81ae374b2980f2df03655f208cce3a5ec95d064127de6a105",
+    "windows-kits-bundle-10_0_26100_0.zip": "cf272921858dd134e997f4a372d413563e4375b2c4fceda06e7716fedb9e8bc7",
+  },
 } as const
 
 type CodeSignVersionKey = keyof typeof wincodesignChecksums
@@ -51,38 +66,39 @@ function _getWindowsToolsBin<V extends CodeSignVersionKey>(winCodeSign: V, file:
 
 export async function getSignToolPath(winCodeSign: ToolsetConfig["winCodeSign"] | Nullish, isWin: boolean): Promise<ToolInfo> {
   if (isUseSystemSigncode()) {
-    return { path: "osslsigncode" }
+    return {path: "osslsigncode"}
   }
 
   const signToolPath = await resolveEnvToolsetPath("SIGNTOOL_PATH", "file")
   if (signToolPath != null) {
-    return { path: signToolPath }
+    return {path: signToolPath}
   }
 
   if (isWin) {
     // windows kits are always the target arch; signtool can be used by either arch.
     const signtoolArch: Arch = process.arch === "x64" ? Arch.x64 : process.arch === "arm64" ? Arch.arm64 : Arch.ia32
-    return { path: await getWindowsSignToolExe({ winCodeSign, arch: signtoolArch }) }
-  } else {
+    return {path: await getWindowsSignToolExe({winCodeSign, arch: signtoolArch})}
+  }
+  else {
     const vendor = await getOsslSigncodeBundle(winCodeSign)
-    return { path: vendor.path, env: vendor.env }
+    return {path: vendor.path, env: vendor.env}
   }
 }
 
-export async function getWindowsKitsBundle({ winCodeSign, arch }: { winCodeSign: CodeSignVersionKey | Nullish; arch: Arch }) {
+export async function getWindowsKitsBundle({winCodeSign, arch}: { winCodeSign: CodeSignVersionKey | Nullish; arch: Arch }) {
   const kitPath = await resolveEnvToolsetPath("ELECTRON_BUILDER_WINDOWS_KITS_PATH", "directory")
   if (kitPath != null) {
-    return { kit: kitPath, appxAssets: kitPath }
+    return {kit: kitPath, appxAssets: kitPath}
   }
 
   const useLegacy = winCodeSign == null || winCodeSign === "0.0.0"
   if (useLegacy) {
     const vendorPath = await getLegacyWinCodeSignBin()
-    return { kit: path.resolve(vendorPath, "windows-10", arch === Arch.arm64 ? "x64" : Arch[arch]), appxAssets: vendorPath }
+    return {kit: path.resolve(vendorPath, "windows-10", arch === Arch.arm64 ? "x64" : Arch[arch]), appxAssets: vendorPath}
   }
   const file = "windows-kits-bundle-10_0_26100_0.zip"
   const vendorPath = await _getWindowsToolsBin(winCodeSign, file)
-  return { kit: path.resolve(vendorPath, arch === Arch.ia32 ? "x86" : Arch[arch]), appxAssets: vendorPath }
+  return {kit: path.resolve(vendorPath, arch === Arch.ia32 ? "x86" : Arch[arch]), appxAssets: vendorPath}
 }
 
 export function isOldWin6() {
@@ -90,40 +106,42 @@ export function isOldWin6() {
   return winVersion.startsWith("6.") && !winVersion.startsWith("6.3")
 }
 
-async function getWindowsSignToolExe({ winCodeSign, arch }: { winCodeSign: CodeSignVersionKey | Nullish; arch: Arch }) {
+async function getWindowsSignToolExe({winCodeSign, arch}: { winCodeSign: CodeSignVersionKey | Nullish; arch: Arch }) {
   if (winCodeSign === "0.0.0" || winCodeSign == null) {
     // use modern signtool on Windows Server 2012 R2 to be able to sign AppX
     const vendorPath = await getLegacyWinCodeSignBin()
     if (isOldWin6()) {
       return path.resolve(vendorPath, "windows-6", "signtool.exe")
-    } else {
+    }
+    else {
       return path.resolve(vendorPath, "windows-10", process.arch === "ia32" ? "ia32" : "x64", "signtool.exe")
     }
   }
-  const vendorPath = await getWindowsKitsBundle({ winCodeSign, arch })
+  const vendorPath = await getWindowsKitsBundle({winCodeSign, arch})
   return path.resolve(vendorPath.kit, "signtool.exe")
 }
 
 async function getOsslSigncodeBundle(winCodeSign: ToolsetConfig["winCodeSign"] | Nullish) {
   const osslSigncodePath = await resolveEnvToolsetPath("ELECTRON_BUILDER_OSSL_SIGNCODE_PATH", "file")
   if (osslSigncodePath != null) {
-    return { path: osslSigncodePath }
+    return {path: osslSigncodePath}
   }
   if (process.platform === "win32" || process.env.USE_SYSTEM_OSSLSIGNCODE === "true") {
-    return { path: "osslsigncode" }
+    return {path: "osslsigncode"}
   }
 
   if (winCodeSign === "0.0.0" || winCodeSign == null) {
     const vendorBase = path.resolve(await getLegacyWinCodeSignBin(), process.platform)
     const vendorPath = process.platform === "darwin" ? path.resolve(vendorBase, "10.12") : vendorBase
-    return { path: path.resolve(vendorPath, "osslsigncode"), env: process.platform === "darwin" ? computeToolEnv([path.resolve(vendorPath, "lib")]) : undefined }
+    return {path: path.resolve(vendorPath, "osslsigncode"), env: process.platform === "darwin" ? computeToolEnv([path.resolve(vendorPath, "lib")]) : undefined}
   }
 
   const file = (() => {
     if (process.platform === "linux") {
       if (process.arch == "x64") {
         return "win-codesign-linux-amd64.zip"
-      } else if (process.arch === "arm64") {
+      }
+      else if (process.arch === "arm64") {
         return "win-codesign-linux-arm64.zip"
       }
       return "win-codesign-linux-i386.zip"
@@ -135,7 +153,7 @@ async function getOsslSigncodeBundle(winCodeSign: ToolsetConfig["winCodeSign"] |
     return "win-codesign-darwin-x86_64.zip"
   })()
   const vendorPath = await _getWindowsToolsBin(winCodeSign, file)
-  return { path: path.resolve(vendorPath, "osslsigncode") }
+  return {path: path.resolve(vendorPath, "osslsigncode")}
 }
 
 export async function getRceditBundle(winCodeSign: ToolsetConfig["winCodeSign"] | Nullish) {
@@ -145,15 +163,15 @@ export async function getRceditBundle(winCodeSign: ToolsetConfig["winCodeSign"] 
   const rcedit = await resolveEnvToolsetPath("ELECTRON_BUILDER_RCEDIT_PATH", "directory")
   if (rcedit != null) {
     const overridePath = rcedit
-    return { x86: path.resolve(overridePath, x86), x64: path.resolve(overridePath, x64) }
+    return {x86: path.resolve(overridePath, x86), x64: path.resolve(overridePath, x64)}
   }
   if (winCodeSign === "0.0.0" || winCodeSign == null) {
     const vendorPath = await getLegacyWinCodeSignBin()
-    return { x86: path.resolve(vendorPath, ia32), x64: path.resolve(vendorPath, x64) }
+    return {x86: path.resolve(vendorPath, ia32), x64: path.resolve(vendorPath, x64)}
   }
   const file = "rcedit-windows-2_0_0.zip"
   const vendorPath = await _getWindowsToolsBin(winCodeSign, file)
-  return { x86: path.resolve(vendorPath, x86), x64: path.resolve(vendorPath, x64) }
+  return {x86: path.resolve(vendorPath, x86), x64: path.resolve(vendorPath, x64)}
 }
 
 // ─── NSIS toolset ────────────────────────────────────────────────────────────
@@ -191,24 +209,25 @@ async function getNsisBundlePath(nsis: ToolsetConfig["nsis"], customBinary?: Cus
   return downloadBuilderToolset({
     releaseName: `nsis@${nsis}`,
     filenameWithExt: file,
-    checksums: { [file]: nsisChecksums[nsis][file] },
+    checksums: {[file]: nsisChecksums[nsis][file]},
   })
 }
 
 export async function getMakeNsisPath(nsis: ToolsetConfig["nsis"] | Nullish, customBinary?: CustomNsisBinaryConfig | null): Promise<ToolInfo> {
   const legacyBundle = (bundlePath: string) => {
     // legacy bundle: platform-specific subdirectories, NSISDIR must be set explicitly
-    const env = { NSISDIR: bundlePath }
+    const env = {NSISDIR: bundlePath}
     if (process.platform === "darwin") {
-      return { path: path.resolve(bundlePath, "mac", "makensis"), env }
-    } else if (process.platform === "win32") {
-      return { path: path.resolve(bundlePath, "Bin", "makensis.exe"), env }
+      return {path: path.resolve(bundlePath, "mac", "makensis"), env}
     }
-    return { path: path.resolve(bundlePath, "linux", "makensis"), env }
+    else if (process.platform === "win32") {
+      return {path: path.resolve(bundlePath, "Bin", "makensis.exe"), env}
+    }
+    return {path: path.resolve(bundlePath, "linux", "makensis"), env}
   }
   const entrypointBundle = (bundlePath: string) => {
     // the entrypoint script auto-sets NSISDIR
-    return { path: path.resolve(bundlePath, process.platform === "win32" ? "makensis.cmd" : "makensis") }
+    return {path: path.resolve(bundlePath, process.platform === "win32" ? "makensis.cmd" : "makensis")}
   }
 
   const overridePath = await resolveEnvToolsetPath("ELECTRON_BUILDER_NSIS_DIR", "directory")

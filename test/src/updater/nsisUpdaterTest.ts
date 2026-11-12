@@ -148,7 +148,7 @@ test("valid signature", config, async ({expect}) => {
   const updater = await createNsisUpdater("0.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
-    url: "https://develar.s3.amazonaws.com/test",
+    url: "https://github.com/develar/__test_nsis_release/releases/download/v1.1.0/",
     publisherName: ["Vladimir Krivosheev"]
   })
   await validateDownload(expect, updater)
@@ -158,7 +158,7 @@ test("valid signature - multiple publisher DNs", config, async ({expect}) => {
   const updater = await createNsisUpdater("0.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
-    url: "https://develar.s3.amazonaws.com/test",
+    url: "https://github.com/develar/__test_nsis_release/releases/download/v1.1.0/",
     publisherName: ["Foo Bar", "CN=Vladimir Krivosheev, O=Vladimir Krivosheev, L=Grunwald, S=Bayern, C=DE", "Bar Foo"],
   })
   await validateDownload(expect, updater)
@@ -168,7 +168,7 @@ test("valid signature using DN", config, async ({expect}) => {
   const updater = await createNsisUpdater("0.0.1")
   updater.updateConfigPath = await writeUpdateConfig({
     provider: "generic",
-    url: "https://develar.s3.amazonaws.com/test",
+    url: "https://github.com/develar/__test_nsis_release/releases/download/v1.1.0/",
     publisherName: ["CN=Vladimir Krivosheev, O=Vladimir Krivosheev, L=Grunwald, S=Bayern, C=DE"],
   })
 
