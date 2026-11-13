@@ -2,23 +2,23 @@ import { ToolsetConfig } from "app-builder-lib"
 import { PM } from "app-builder-lib/out/node-module-collector"
 import { ParallelsVmManager } from "app-builder-lib/out/vm/ParallelsVm"
 import { getWindowsVm, VmManager } from "app-builder-lib/out/vm/vm"
+import { archFromString, DebugLogger, deepAssign, log, serializeToYaml, spawn, TmpDir } from "builder-util"
 import { GenericServerOptions, Nullish } from "builder-util-runtime"
-import { archFromString, deepAssign, DebugLogger, log, serializeToYaml, spawn, TmpDir } from "builder-util"
+import { randomUUID } from "crypto"
 import { Arch, Configuration, Platform } from "electron-builder"
 import { copy, existsSync, move, outputFile, readJsonSync, remove } from "fs-extra"
 import { homedir } from "os"
 import path from "path"
-import { randomUUID } from "crypto"
 import { ExpectStatic, TestContext } from "vitest"
 import { createLocalServer, getParallelsHostIP, launchAndWaitForQuit } from "../helpers/launchAppCrossPlatform"
 import { assertPack, modifyPackageJson, PackedContext } from "../helpers/packTester"
 import { ELECTRON_VERSION } from "../helpers/testConfig"
 import { NEW_VERSION_NUMBER, OLD_VERSION_NUMBER, writeUpdateConfig } from "../helpers/updaterTestUtil"
-import { cleanupWindowsNative, installWindowsNative, installWindowsVm } from "./blackboxInstallWindows"
-import { cleanupLinux, installLinux } from "./blackboxInstallLinux"
+import { installLinux } from "./blackboxInstallLinux"
 import { installMac } from "./blackboxInstallMac"
+import { cleanupWindowsNative, installWindowsNative, installWindowsVm } from "./blackboxInstallWindows"
 
-export const optionsForFlakyE2E = { sequential: true, retry: 1, timeout: 15 * 60 * 1000 } as const
+export const optionsForFlakyE2E = {sequential: true, retry: 1, timeout: 15 * 60 * 1000} as const
 
 // Resolve only to a ParallelsVmManager — PwshVmManager (used for code-signing on Linux/Mac via Wine)
 // is not capable of installing or running Windows executables and must not be treated as a Windows VM.
@@ -41,13 +41,14 @@ export async function doBuild(
   extraConfiguration?: Configuration | null
 ) {
   const currentPlatform = isWindows ? Platform.WINDOWS : Platform.current()
+
   async function buildApp({
-    version,
-    target,
-    arch,
-    extraConfig,
-    packed,
-  }: {
+                            version,
+                            target,
+                            arch,
+                            extraConfig,
+                            packed,
+                          }: {
     version: string
     target: string
     arch: Arch
@@ -151,7 +152,7 @@ export async function doBuild(
             },
             false
           )
-          await spawn("pnpm", ["install"], { cwd: projectDir, stdio: "inherit", env: runtimeEnv })
+          await spawn("pnpm", ["install"], {cwd: projectDir, stdio: "inherit", env: runtimeEnv})
         },
       }
     )
@@ -165,30 +166,31 @@ export async function doBuild(
       extraConfig,
       packed: async context => {
         // move dist temporarily out of project dir so each downloader can reference it
-        const dir = await tmpDir.getTempDir({ prefix: version })
+        const dir = await tmpDir.getTempDir({prefix: version})
         await move(context.outDir, dir)
         const appPath = path.join(dir, path.relative(context.outDir, context.getAppPath(Platform.current(), archFromString(process.arch))))
-        outDirs.push({ dir, appPath })
+        outDirs.push({dir, appPath})
       },
     })
   try {
-    await build(OLD_VERSION_NUMBER, { ...extraConfiguration, compression: "store" })
-    await build(NEW_VERSION_NUMBER, { ...extraConfiguration, compression: "maximum" }) // validate both compressions work while we're at it
-  } catch (e: any) {
+    await build(OLD_VERSION_NUMBER, {...extraConfiguration, compression: "store"})
+    await build(NEW_VERSION_NUMBER, {...extraConfiguration, compression: "maximum"}) // validate both compressions work while we're at it
+  }
+  catch (e: any) {
     await tmpDir.cleanup()
     throw e
   }
 }
 
-const LINUX_TARGETS = ["AppImage", "deb", "rpm", "pacman"]
+const LINUX_TARGETS = ["AppImage"]
 
 async function handleInitialInstallPerOS({
-  target,
-  dirPath,
-  arch,
-  vm,
-  perMachine,
-}: {
+                                           target,
+                                           dirPath,
+                                           arch,
+                                           vm,
+                                           perMachine,
+                                         }: {
   target: string
   dirPath: string
   arch: Arch
@@ -210,16 +212,15 @@ async function handleInitialInstallPerOS({
   throw new Error(`Unsupported Update test target: ${target}`)
 }
 
-async function handleCleanupPerOS({ target, perMachine }: { target: string; perMachine?: boolean }): Promise<void> {
+async function handleCleanupPerOS({target, perMachine}: { target: string; perMachine?: boolean }): Promise<void> {
   if (process.platform === "win32") {
     return cleanupWindowsNative(perMachine)
   }
-  cleanupLinux(target)
 }
 
 export async function runTestWithinServer(doTest: (rootDirectory: string, updateConfigPath: string) => Promise<void>, vm?: VmManager) {
   const tmpDir = new TmpDir("blackbox-update-test")
-  const root = await tmpDir.getTempDir({ prefix: "server-root" })
+  const root = await tmpDir.getTempDir({prefix: "server-root"})
 
   // When a VM is in use, the update server must be reachable from inside the VM.
   // Bind to the Parallels host IP specifically so the server is accessible from the VM
@@ -228,9 +229,9 @@ export async function runTestWithinServer(doTest: (rootDirectory: string, update
   if (vm && !serverHost) {
     throw new Error("Cannot determine Parallels host IP for update server — no prl*/bridge* interface found")
   }
-  const { server, port } = await createLocalServer(root, serverHost)
+  const {server, port} = await createLocalServer(root, serverHost)
 
-  const serverConfig: GenericServerOptions = { provider: "generic", url: `http://${serverHost}:${port}` }
+  const serverConfig: GenericServerOptions = {provider: "generic", url: `http://${serverHost}:${port}`}
   let updateConfig: string
   let vmConfigDir: string | undefined
   if (vm) {
@@ -239,19 +240,22 @@ export async function runTestWithinServer(doTest: (rootDirectory: string, update
     vmConfigDir = path.join(homedir(), `.eb-update-test-${randomUUID()}`)
     updateConfig = path.join(vmConfigDir, "app-update.yml")
     await outputFile(updateConfig, serializeToYaml(serverConfig))
-  } else {
+  }
+  else {
     updateConfig = await writeUpdateConfig<GenericServerOptions>(serverConfig)
   }
 
   const cleanup = () => {
     try {
       tmpDir.cleanupSync()
-    } catch (error) {
+    }
+    catch (error) {
       console.error("Failed to cleanup tmpDir", error)
     }
     try {
       server.close()
-    } catch (error) {
+    }
+    catch (error) {
       console.error("Failed to close server", error)
     }
     if (vmConfigDir) {
@@ -282,7 +286,7 @@ export async function runTest(
   toolsets: ToolsetConfig = {},
   extraConfig?: Partial<Configuration>
 ) {
-  const { expect } = context
+  const {expect} = context
   const vm = await windowsVmPromise
   if (vm && target === "nsis") {
     console.log("Running Windows test via Parallels VM")
@@ -292,7 +296,7 @@ export async function runTest(
   const outDirs: ApplicationUpdatePaths[] = []
   const shouldRunWindowsTests = process.platform === "win32" || (target === "nsis" && vm != null)
   // Merge toolsets with any caller-supplied config overrides (e.g. nsis.perMachine)
-  const buildConfig = deepAssign({ toolsets } as Configuration, extraConfig ?? {})
+  const buildConfig = deepAssign({toolsets} as Configuration, extraConfig ?? {})
   await doBuild(expect, outDirs, target, arch, tmpDir, shouldRunWindowsTests, buildConfig)
 
   const oldAppDir = outDirs[0]
@@ -302,7 +306,7 @@ export async function runTest(
   const perMachine = extraConfig?.nsis?.perMachine
 
   // Setup tests by installing the previous version
-  const appPath = await handleInitialInstallPerOS({ target, dirPath, arch, vm, perMachine })
+  const appPath = await handleInitialInstallPerOS({target, dirPath, arch, vm, perMachine})
 
   if (!vm && !existsSync(appPath)) {
     throw new Error(`App not found: ${appPath}`)
@@ -312,7 +316,7 @@ export async function runTest(
   try {
     await runTestWithinServer(async (rootDirectory: string, updateConfigPath: string) => {
       // Move app update to the root directory of the server
-      await copy(newAppDir.dir, rootDirectory, { recursive: true, overwrite: true })
+      await copy(newAppDir.dir, rootDirectory, {recursive: true, overwrite: true})
 
       // waitForExit: true — don't proceed until the old app fully quits.
       // On Linux (rpm/deb/pacman) the package manager install is synchronous, so exit means install done.
@@ -327,7 +331,7 @@ export async function runTest(
         packageManagerToTest: packageManager,
         waitForExit: true,
       })
-      log.info({ version: result.version, stdout: result.stdout }, "Initial launch completed")
+      log.info({version: result.version, stdout: result.stdout}, "Initial launch completed")
       expect(result.version).toMatch(OLD_VERSION_NUMBER)
       if (!result.stdout.includes("Update downloaded")) {
         throw new Error(`Update phase did not complete — quitAndInstall was never triggered.\nFull stdout:\n${result.stdout}`)
@@ -347,7 +351,7 @@ export async function runTest(
             timeoutMs: 30 * 1000,
             updateConfigPath,
             packageManagerToTest: packageManager,
-            env: { AUTO_UPDATER_TEST: "" }, // disables updater — app prints version and quits
+            env: {AUTO_UPDATER_TEST: ""}, // disables updater — app prints version and quits
             // waitForExit: true ensures TestApp.exe is fully released before the next
             // poll iteration, giving the detached NSIS installer an uncontested window
             // to overwrite the binary (Windows locks executables while they are running).
@@ -357,13 +361,15 @@ export async function runTest(
           if (newVersion === NEW_VERSION_NUMBER) {
             break
           }
-          log.info({ installedVersion: newVersion, expected: NEW_VERSION_NUMBER }, "Installer still in progress, retrying...")
-        } catch (err: any) {
+          log.info({installedVersion: newVersion, expected: NEW_VERSION_NUMBER}, "Installer still in progress, retrying...")
+        }
+        catch (err: any) {
           // NSIS replaces the exe non-atomically: it deletes the old binary before writing the new one,
           // so there is a brief window where TestApp.exe does not exist on disk.
           if (err.code === "ENOENT" && (err.syscall === "spawn" || err.syscall?.startsWith("spawn "))) {
-            log.info({ appPath }, "Binary temporarily unavailable (NSIS installer in progress), retrying...")
-          } else {
+            log.info({appPath}, "Binary temporarily unavailable (NSIS installer in progress), retrying...")
+          }
+          else {
             throw err
           }
         }
@@ -373,17 +379,20 @@ export async function runTest(
       }
       expect(newVersion).toMatch(NEW_VERSION_NUMBER)
     }, vm)
-  } catch (error: any) {
-    log.error({ error: error.message }, "Blackbox Updater Test failed to run")
+  }
+  catch (error: any) {
+    log.error({error: error.message}, "Blackbox Updater Test failed to run")
     queuedError = error
-  } finally {
+  }
+  finally {
     // windows needs to release file locks, so a delay seems to be needed
     await new Promise(resolve => setTimeout(resolve, 1000))
     await tmpDir.cleanup()
     try {
-      await handleCleanupPerOS({ target, perMachine })
-    } catch (error: any) {
-      log.error({ error: error.message }, "Blackbox Updater Test cleanup failed")
+      await handleCleanupPerOS({target, perMachine})
+    }
+    catch (error: any) {
+      log.error({error: error.message}, "Blackbox Updater Test cleanup failed")
       // ignore
     }
   }

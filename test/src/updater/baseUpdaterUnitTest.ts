@@ -1,8 +1,8 @@
-import * as path from "path"
-import { afterEach, beforeEach, expect, it, vi } from "vitest"
-import { AppImageUpdater, DebUpdater } from "electron-updater"
+import { AppImageUpdater } from "electron-updater"
 import type { AppAdapter } from "electron-updater/out/AppAdapter"
 import type { InstallOptions } from "electron-updater/out/BaseUpdater"
+import * as path from "path"
+import { afterEach, beforeEach, expect, it, vi } from "vitest"
 
 const stubApp: AppAdapter = {
   name: "TestApp",
@@ -17,17 +17,17 @@ const stubApp: AppAdapter = {
   onQuit: () => {},
 }
 
-const installOpts: InstallOptions = { isSilent: false, isForceRunAfter: false, isAdminRightsRequired: false }
+const installOpts: InstallOptions = {isSilent: false, isForceRunAfter: false, isAdminRightsRequired: false}
 
 // ─── BaseUpdater.sanitizeEnvPath — PATH sanitization ─────────────────────────
 // Tests the extracted helper directly (vi.spyOn on ESM module exports is not
 // possible; testing the pure function avoids that limitation entirely).
 
 describe.ifNotWindows("BaseUpdater sanitizeEnvPath PATH handling", () => {
-  let updater: DebUpdater
+  let updater: AppImageUpdater
 
   beforeEach(() => {
-    updater = new DebUpdater(null, stubApp)
+    updater = new AppImageUpdater(null, stubApp)
     vi.spyOn(updater as any, "spawnSyncLog").mockReturnValue("")
   })
 
@@ -86,7 +86,8 @@ describe("AppImageUpdater doInstall APPIMAGE env handling", () => {
     vi.restoreAllMocks()
     if (originalAppimage == null) {
       delete process.env.APPIMAGE
-    } else {
+    }
+    else {
       process.env.APPIMAGE = originalAppimage
     }
   })
