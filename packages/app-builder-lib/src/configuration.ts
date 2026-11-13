@@ -1,5 +1,5 @@
 import { Arch } from "builder-util"
-import { BeforeBuildContext, Target } from "./core"
+import { Target } from "./core"
 import { ElectronBrandingOptions } from "./electron/ElectronFramework"
 import { PrepareApplicationStageDirectoryOptions } from "./Framework"
 import { AppImageOptions, LinuxConfiguration } from "./options/linuxOptions"
@@ -431,12 +431,6 @@ export interface Hooks {
    * The function (or path to file or module id) to be [run on each node module](#onnodemodulefile) file. Returning `true`/`false` will determine whether to force include or to use the default copier logic
    */
   readonly onNodeModuleFile?: Hook<string, void | boolean> | string | null
-  /**
-   * The function (or path to file or module id) to be run before dependencies are installed or rebuilt. Works when `npmRebuild` is set to `true`. Resolving to `false` will skip dependencies install or rebuild.
-   *
-   * If provided and `node_modules` are missing, it will not invoke production dependencies check.
-   */
-  readonly beforeBuild?: Hook<BeforeBuildContext, boolean | void> | string | null
   /**
    * The function (or path to file or module id) to be run when staging the electron artifact environment.
    * Returns the path to custom Electron build (e.g. `~/electron/out/R`) or folder of electron zips.

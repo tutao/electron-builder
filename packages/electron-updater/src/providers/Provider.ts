@@ -5,8 +5,6 @@ import { URL } from "url"
 import { ElectronHttpExecutor } from "../electronHttpExecutor"
 import { ResolvedUpdateFileInfo } from "../types"
 import { newUrlFromBase } from "../util"
-// @ts-ignore
-import * as escapeRegExp from "lodash.escaperegexp"
 
 export type ProviderPlatform = "darwin" | "linux" | "win32"
 
@@ -30,7 +28,7 @@ export abstract class Provider<T extends UpdateInfo> {
   getBlockMapFiles(baseUrl: URL, oldVersion: string, newVersion: string, oldBlockMapFileBaseUrl: string | null = null): URL[] | Promise<URL[]> {
     const newBlockMapUrl = newUrlFromBase(`${baseUrl.pathname}.blockmap`, baseUrl)
     const oldBlockMapUrl = newUrlFromBase(
-      `${baseUrl.pathname.replace(new RegExp(escapeRegExp(newVersion), "g"), oldVersion)}.blockmap`,
+      `${baseUrl.pathname.replaceAll(newVersion, oldVersion)}.blockmap`,
       oldBlockMapFileBaseUrl ? new URL(oldBlockMapFileBaseUrl) : baseUrl
     )
 
@@ -46,7 +44,8 @@ export abstract class Provider<T extends UpdateInfo> {
       const arch = process.env["TEST_UPDATER_ARCH"] || process.arch
       const archSuffix = arch === "x64" ? "" : `-${arch}`
       return "-linux" + archSuffix
-    } else {
+    }
+    else {
       return this.runtimeOptions.platform === "darwin" ? "-mac" : ""
     }
   }
@@ -85,8 +84,9 @@ export abstract class Provider<T extends UpdateInfo> {
       if (headers != null) {
         result.headers = headers
       }
-    } else {
-      result.headers = headers == null ? this.requestHeaders : { ...this.requestHeaders, ...headers }
+    }
+    else {
+      result.headers = headers == null ? this.requestHeaders : {...this.requestHeaders, ...headers}
     }
 
     configureRequestUrl(url, result)
@@ -104,9 +104,11 @@ export function findFile(files: Array<ResolvedUpdateFileInfo>, extension: string
 
   if (result) {
     return result
-  } else if (not == null) {
+  }
+  else if (not == null) {
     return files[0]
-  } else {
+  }
+  else {
     return files.find(fileInfo => !not.some(ext => fileInfo.url.pathname.toLowerCase().endsWith(`.${ext.toLowerCase()}`)))
   }
 }
@@ -119,7 +121,8 @@ export function parseUpdateInfo(rawData: string | null, channelFile: string, cha
   let result: UpdateInfo
   try {
     result = load(rawData) as UpdateInfo
-  } catch (e: any) {
+  }
+  catch (e: any) {
     throw newError(
       `Cannot parse update info from ${channelFile} in the latest release artifacts (${channelFileUrl}): ${e.stack || e.message}, rawData: ${rawData}`,
       "ERR_UPDATER_INVALID_UPDATE_INFO"
@@ -144,7 +147,8 @@ export function getFileList(updateInfo: UpdateInfo): Array<UpdateFileInfo> {
         sha512: updateInfo.sha512,
       } as any,
     ]
-  } else {
+  }
+  else {
     throw newError(`No files provided: ${safeStringifyJson(updateInfo)}`, "ERR_UPDATER_NO_FILES_PROVIDED")
   }
 }

@@ -1,51 +1,13 @@
 #! /usr/bin/env node
 
-import { AppInfo, CancellationToken, Packager, PackagerOptions, checkBuildRequestOptions, PublishOptions, PublishManager } from "app-builder-lib"
+import { AppInfo, CancellationToken, checkBuildRequestOptions, Packager, PackagerOptions, PublishManager, PublishOptions } from "app-builder-lib"
 import { Publish } from "app-builder-lib/out/core"
 import { computeSafeArtifactNameIfNeeded } from "app-builder-lib/out/platformPackager"
 import { getConfig } from "app-builder-lib/out/util/config/config"
-import { InvalidConfigurationError, archFromString, log, printErrorAndExit, UploadTask } from "builder-util"
+import { archFromString, InvalidConfigurationError, log, UploadTask } from "builder-util"
 import { PublishPolicy } from "electron-publish"
-import * as chalk from "chalk"
 import * as path from "path"
-import * as yargs from "yargs"
 import { BuildOptions, normalizeOptions } from "./builder"
-
-/** @internal */
-export function configurePublishCommand(yargs: yargs.Argv): yargs.Argv {
-  // https://github.com/yargs/yargs/issues/760
-  // demandOption is required to be set
-  return yargs
-    .version(false)
-    .parserConfiguration({
-      "camel-case-expansion": false,
-    })
-    .option("files", {
-      alias: "f",
-      string: true,
-      type: "array",
-      requiresArg: true,
-      description: "The file(s) to upload to your publisher",
-    })
-    .option("version", {
-      alias: ["v"],
-      type: "string",
-      description: "The app/build version used when searching for an upload release (used by some Publishers)",
-    })
-    .option("config", {
-      alias: ["c", "configurationFilePath"],
-      type: "string",
-      description:
-        "The path to an electron-builder config. Defaults to `electron-builder.yml` (or `json`, or `json5`, or `js`, or `ts`), see " + chalk.underline("https://goo.gl/YFRJOM"),
-    })
-    .option("policy", {
-      alias: ["p"],
-      type: "string",
-      description: `Publish trigger policy, see ${chalk.underline("https://www.electron.build/publish")}`,
-      choices: ["onTag", "onTagOrDraft", "always", "never", undefined as any],
-    })
-    .demandOption("files")
-}
 
 export async function publish(args: { files: string[]; version: string | undefined; configurationFilePath: string | undefined; policy: PublishPolicy }) {
   const uploadTasks = args.files.map(f => {
@@ -54,7 +16,7 @@ export async function publish(args: { files: string[]; version: string | undefin
       arch: null,
     }
   })
-  return publishArtifactsWithOptions(uploadTasks, args.version, args.configurationFilePath, undefined, { publish: args.policy })
+  return publishArtifactsWithOptions(uploadTasks, args.version, args.configurationFilePath, undefined, {publish: args.policy})
 }
 
 export async function publishArtifactsWithOptions(
@@ -65,15 +27,15 @@ export async function publishArtifactsWithOptions(
   publishOptions?: PublishOptions
 ) {
   const projectDir = process.cwd()
-  const config = await getConfig(projectDir, configurationFilePath || null, { publish: publishConfiguration, detectUpdateChannel: false })
+  const config = await getConfig(projectDir, configurationFilePath || null, {publish: publishConfiguration, detectUpdateChannel: false})
 
-  const buildOptions: BuildOptions = normalizeOptions({ config, publish: publishOptions?.publish })
+  const buildOptions: BuildOptions = normalizeOptions({config, publish: publishOptions?.publish})
   checkBuildRequestOptions(buildOptions)
 
   const uniqueUploads = Array.from(new Set(uploadOptions))
-  const tasks: UploadTask[] = uniqueUploads.map(({ file, arch }) => {
+  const tasks: UploadTask[] = uniqueUploads.map(({file, arch}) => {
     const filename = path.basename(file)
-    return { file, arch: arch ? archFromString(arch) : null, safeArtifactName: computeSafeArtifactNameIfNeeded(filename, () => filename) }
+    return {file, arch: arch ? archFromString(arch) : null, safeArtifactName: computeSafeArtifactNameIfNeeded(filename, () => filename)}
   })
 
   return publishPackageWithTasks(buildOptions, tasks, buildVersion)
@@ -111,20 +73,12 @@ async function publishPackageWithTasks(
 
     await publishManager.awaitTasks()
     return uploadTasks
-  } catch (error: any) {
+  }
+  catch (error: any) {
     packager.cancellationToken.cancel()
     publishManager.cancelTasks()
     process.removeListener("SIGINT", sigIntHandler)
-    log.error({ message: (error.stack || error.message || error).toString() }, "error publishing")
+    log.error({message: (error.stack || error.message || error).toString()}, "error publishing")
   }
   return null
-}
-
-function main() {
-  return publish(configurePublishCommand(yargs).argv as any)
-}
-
-if (require.main === module) {
-  log.warn("please use as subcommand: electron-builder publish")
-  main().catch(printErrorAndExit)
 }

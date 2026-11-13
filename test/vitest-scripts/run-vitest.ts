@@ -1,6 +1,5 @@
 #!/usr/bin/env ts-node
 
-import { isCI } from "ci-info"
 import { startVitest } from "vitest/node"
 import { getAllTestFiles } from "./file-discovery"
 import { generateTests } from "./generate-tests"
@@ -57,7 +56,6 @@ async function main() {
   console.log(`Scanned Files: ${selectedFiles.length}`)
 
   return startVitest("test", selectedFiles, {
-    allowOnly: !isCI, // Prevent accidental commit of `test.only` in CI
     update: process.env.UPDATE_SNAPSHOT === "true",
 
     // we manually set `globalThis.test` and `globalThis.describe` in vitest-setup.ts to make sure everything works correctly
@@ -73,7 +71,7 @@ async function main() {
     reporters: [
       "default",
       //  ["html", {singleFile: true}],
-      ["json", { outputFile: "test-result.json" }]
+      ["json", {outputFile: "test-result.json"}]
       // __dirname + "/vitest-smart-reporter.ts"
     ],
 

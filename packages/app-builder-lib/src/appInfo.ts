@@ -145,12 +145,6 @@ export class AppInfo {
     return this.info.metadata.name!
   }
 
-  get linuxPackageName(): string {
-    const name = this.name
-    // https://github.com/electron-userland/electron-builder/issues/2963
-    return name.startsWith("@") ? this.sanitizedProductName : name
-  }
-
   get sanitizedName(): string {
     return sanitizeFileName(this.name)
   }
@@ -169,12 +163,7 @@ export class AppInfo {
 
   async computePackageUrl(): Promise<string | null> {
     const url = this.info.metadata.homepage || this.notNullDevMetadata.homepage
-    if (url != null) {
-      return url
-    }
-
-    const info = await this.info.repositoryInfo
-    return info == null || info.type !== "github" ? null : `https://${info.domain}/${info.user}/${info.project}`
+    return Promise.resolve(url ?? null)
   }
 }
 

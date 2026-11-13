@@ -1,10 +1,9 @@
 import { validateConfiguration } from "app-builder-lib/out/util/config/config"
 import { Arch, DebugLogger } from "builder-util"
 import { Configuration, Platform } from "electron-builder"
-import { CliOptions, configureBuildCommand, createYargs, normalizeOptions } from "electron-builder/out/builder"
 import { app, appThrows, linuxDirTarget } from "./helpers/packTester"
 
-test.ifNotWindows("validation", ({ expect }) =>
+test.ifNotWindows("validation", ({expect}) =>
   appThrows(
     expect,
     {
@@ -21,7 +20,7 @@ test.ifNotWindows("validation", ({ expect }) =>
   )
 )
 
-test.ifNotWindows("appId as object", ({ expect }) =>
+test.ifNotWindows("appId as object", ({expect}) =>
   appThrows(expect, {
     targets: linuxDirTarget,
     config: {
@@ -31,7 +30,7 @@ test.ifNotWindows("appId as object", ({ expect }) =>
 )
 
 // https://github.com/electron-userland/electron-builder/issues/1302
-test.ifNotWindows("extraFiles", ({ expect }) =>
+test.ifNotWindows("extraFiles", ({expect}) =>
   app(expect, {
     targets: Platform.LINUX.createTarget("appimage", Arch.x64),
     config: {
@@ -65,7 +64,7 @@ test.ifNotWindows("files", () => {
   return validateConfiguration(
     {
       appId: "com.example.myapp",
-      files: [{ from: "dist/app", to: "app", filter: "*.js" }],
+      files: [{from: "dist/app", to: "app", filter: "*.js"}],
       win: {
         target: "NSIS",
         icon: "build/icon.ico",
@@ -75,81 +74,71 @@ test.ifNotWindows("files", () => {
   )
 })
 
-test.ifNotWindows("null string as null", async ({ expect }) => {
-  const yargs = configureBuildCommand(createYargs())
-  const options = normalizeOptions(yargs.parse(["-c.mac.identity=null", "--config.mac.hardenedRuntime=false"]) as CliOptions)
-  const config = options.config as Configuration
-  await validateConfiguration(config, new DebugLogger())
-  expect(config.mac!.identity).toBeNull()
-  expect(config.mac!.hardenedRuntime).toBe(false)
-})
-
-test.ifNotWindows("unknown mac property reports correct path", ({ expect }) =>
+test.ifNotWindows("unknown mac property reports correct path", ({expect}) =>
   appThrows(
     expect,
     {
       targets: linuxDirTarget,
-      config: { mac: { unknownMacProp: true } } as any,
+      config: {mac: {unknownMacProp: true}} as any,
     },
     undefined,
     error => error.message.includes("configuration.mac has an unknown property 'unknownMacProp'")
   )
 )
 
-test.ifNotWindows("unknown nsis property reports correct path", ({ expect }) =>
+test.ifNotWindows("unknown nsis property reports correct path", ({expect}) =>
   appThrows(
     expect,
     {
       targets: linuxDirTarget,
-      config: { nsis: { unknownNsisProp: "bad" } } as any,
+      config: {nsis: {unknownNsisProp: "bad"}} as any,
     },
     undefined,
     error => error.message.includes("configuration.nsis has an unknown property 'unknownNsisProp'")
   )
 )
 
-test.ifNotWindows("valid callback function passes validation", async ({ expect }) => {
+test.ifNotWindows("valid callback function passes validation", async ({expect}) => {
   await expect(
     validateConfiguration(
       {
         afterPack: () => Promise.resolve(),
-        beforeBuild: () => Promise.resolve(),
       },
       new DebugLogger()
     )
   ).resolves.toBeUndefined()
 })
 
-test.ifNotWindows("null callback passes validation", async ({ expect }) => {
+test.ifNotWindows("null callback passes validation", async ({expect}) => {
   await expect(
     validateConfiguration(
       {
         afterPack: null,
-        beforeBuild: null,
       } as unknown as Configuration,
       new DebugLogger()
     )
   ).resolves.toBeUndefined()
 })
 
-test.ifNotWindows("invalid string type for schema-level field throws via schema validator", async ({ expect }) => {
+test.ifNotWindows("invalid string type for schema-level field throws via schema validator", async ({expect}) => {
   // productName must be a string|null — passing an object exercises the schema validator
   let err: Error | undefined
   try {
-    await validateConfiguration({ productName: {} } as any, new DebugLogger())
-  } catch (e: any) {
+    await validateConfiguration({productName: {}} as any, new DebugLogger())
+  }
+  catch (e: any) {
     err = e
   }
   expect(err).toBeDefined()
   expect(err!.message).toContain("configuration.productName")
 })
 
-test.ifNotWindows("unknown linux property reports correct nested path", ({ expect }) =>
+test.ifNotWindows("unknown linux property reports correct nested path", ({expect}) =>
   appThrows(
     expect,
     {
       targets: linuxDirTarget,
-      config: { linux: { unknownLinuxProp: true } } as any,
+      config: {linux: {unknownLinuxProp: true}} as any,
     },
     undefined,
     error => error.message.includes("configuration.linux has an unknown property 'unknownLinuxProp'")

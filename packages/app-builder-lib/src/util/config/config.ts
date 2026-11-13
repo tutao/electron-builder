@@ -27,7 +27,8 @@ function mergePublish(config: Configuration, configFromOptions: Configuration) {
   const listOnDisk = config.publish as Array<any>
   if (listOnDisk.length === 0) {
     config.publish = publish
-  } else {
+  }
+  else {
     // apply to first
     deepAssign(listOnDisk[0], publish)
   }
@@ -39,7 +40,7 @@ export async function getConfig(
   configFromOptions: Configuration | Nullish,
   packageMetadata: Lazy<Record<string, any> | null> = new Lazy(() => orNullIfFileNotExist(readJson(path.join(projectDir, "package.json"))))
 ): Promise<Configuration> {
-  const configRequest: ReadConfigRequest = { packageKey: "build", configFilename: "electron-builder", projectDir, packageMetadata }
+  const configRequest: ReadConfigRequest = {packageKey: "build", configFilename: "electron-builder", projectDir, packageMetadata}
   const configAndEffectiveFile = await _getConfig<Configuration>(configRequest, configPath)
   const config = configAndEffectiveFile == null ? {} : configAndEffectiveFile.result
   if (configFromOptions != null) {
@@ -47,7 +48,7 @@ export async function getConfig(
   }
 
   if (configAndEffectiveFile != null) {
-    log.info({ file: configAndEffectiveFile.configFile == null ? 'package.json ("build" field)' : configAndEffectiveFile.configFile }, "loaded configuration")
+    log.info({file: configAndEffectiveFile.configFile == null ? "package.json (\"build\" field)" : configAndEffectiveFile.configFile}, "loaded configuration")
   }
 
   if (config.extends == null && config.extends !== null) {
@@ -56,11 +57,13 @@ export async function getConfig(
     const dependencies = metadata.dependencies
     if ((dependencies != null && "react-scripts" in dependencies) || (devDependencies != null && "react-scripts" in devDependencies)) {
       config.extends = "react-cra"
-    } else if (devDependencies != null && "electron-webpack" in devDependencies) {
+    }
+    else if (devDependencies != null && "electron-webpack" in devDependencies) {
       let file = "electron-webpack/out/electron-builder.js"
       try {
         file = require.resolve(file)
-      } catch (_ignore) {
+      }
+      catch (_ignore) {
         file = require.resolve("electron-webpack/electron-builder.yml")
       }
       config.extends = `file:${file}`
@@ -70,11 +73,12 @@ export async function getConfig(
   const parentConfigs = await loadParentConfigsRecursively(config.extends, async configExtend => {
     if (configExtend === "react-cra") {
       const result = await reactCra(projectDir)
-      log.info({ preset: configExtend }, "loaded parent configuration")
+      log.info({preset: configExtend}, "loaded parent configuration")
       return result
-    } else {
-      const { configFile, result } = await loadParentConfig<Configuration>(configRequest, configExtend)
-      log.info({ file: configFile }, "loaded parent configuration")
+    }
+    else {
+      const {configFile, result} = await loadParentConfig<Configuration>(configRequest, configExtend)
+      log.info({file: configFile}, "loaded parent configuration")
       return result
     }
   })
@@ -118,12 +122,14 @@ function normalizeFiles(configuration: Configuration, name: "files" | "extraFile
         let prevItem: FileSet
         do {
           prevItem = value[prevItemIndex--] as FileSet
-        } while (prevItem == null)
+        }
+        while (prevItem == null)
 
         if (prevItem.from == null && prevItem.to == null) {
           if (prevItem.filter == null) {
             prevItem.filter = [item]
-          } else {
+          }
+          else {
             ;(prevItem.filter as Array<string>).push(item)
           }
           value[i] = null as any
@@ -135,7 +141,8 @@ function normalizeFiles(configuration: Configuration, name: "files" | "extraFile
         filter: [item],
       }
       value[i] = item
-    } else if (Array.isArray(item)) {
+    }
+    else if (Array.isArray(item)) {
       throw new Error(`${name} configuration is invalid, nested array not expected for index ${i}: ${item}`)
     }
 
@@ -174,7 +181,8 @@ function mergeFileSets(lists: FileSet[][]): FileSet[] {
       const existingItem = result.find(i => isSimilarFileSet(i, item))
       if (existingItem) {
         existingItem.filter = mergeFilters(item.filter, existingItem.filter)
-      } else {
+      }
+      else {
         result.push(item)
       }
     }
@@ -268,10 +276,12 @@ export async function computeDefaultAppDirectory(projectDir: string, userAppDir:
     const stat = await statOrNull(absolutePath)
     if (stat == null) {
       throw new InvalidConfigurationError(`Application directory ${userAppDir} doesn't exist`)
-    } else if (!stat.isDirectory()) {
+    }
+    else if (!stat.isDirectory()) {
       throw new InvalidConfigurationError(`Application directory ${userAppDir} is not a directory`)
-    } else if (projectDir === absolutePath) {
-      log.warn({ appDirectory: userAppDir }, `Specified application directory equals to project dir — superfluous or wrong configuration`)
+    }
+    else if (projectDir === absolutePath) {
+      log.warn({appDirectory: userAppDir}, `Specified application directory equals to project dir — superfluous or wrong configuration`)
     }
     return absolutePath
   }

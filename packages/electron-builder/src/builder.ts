@@ -1,17 +1,10 @@
 import { build as _build, Configuration, DIR_TARGET, Packager, PackagerOptions, Platform } from "app-builder-lib"
 import { addValue, Arch, archFromString } from "builder-util"
 import { deepAssign } from "builder-util-runtime"
-import * as chalk from "chalk"
 import { PublishOptions } from "electron-publish"
-import * as yargs from "yargs"
 
-export function createYargs(): yargs.Argv<unknown> {
-  return yargs.parserConfiguration({
-    "camel-case-expansion": false,
-  })
+export interface BuildOptions extends PackagerOptions, PublishOptions {
 }
-
-export interface BuildOptions extends PackagerOptions, PublishOptions {}
 
 export interface CliOptions extends PackagerOptions, PublishOptions {
   x64?: boolean
@@ -71,7 +64,8 @@ export function normalizeOptions(args: CliOptions): BuildOptions {
       const suffixPos = type.lastIndexOf(":")
       if (suffixPos > 0) {
         addValue(archToType, archFromString(type.substring(suffixPos + 1)), type.substring(0, suffixPos))
-      } else {
+      }
+      else {
         for (const arch of commonArch(true)) {
           addValue(archToType, arch, type)
         }
@@ -95,7 +89,7 @@ export function normalizeOptions(args: CliOptions): BuildOptions {
     processTargets(Platform.current(), [])
   }
 
-  const result: any = { ...args }
+  const result: any = {...args}
   result.targets = targets
 
   delete result.dir
@@ -133,7 +127,8 @@ export function normalizeOptions(args: CliOptions): BuildOptions {
     for (const configItem of config) {
       if (typeof configItem === "object") {
         deepAssign(newConfig, configItem)
-      } else if (typeof configItem === "string") {
+      }
+      else if (typeof configItem === "string") {
         newConfig.extends = configItem
       }
     }
@@ -174,13 +169,17 @@ function coerceValue(host: any, key: string): void {
   const value = host[key]
   if (value === "true") {
     host[key] = true
-  } else if (value === "false") {
+  }
+  else if (value === "false") {
     host[key] = false
-  } else if (value === "null") {
+  }
+  else if (value === "null") {
     host[key] = null
-  } else if (key === "version" && typeof value === "number") {
+  }
+  else if (key === "version" && typeof value === "number") {
     host[key] = value.toString()
-  } else if (value != null && typeof value === "object") {
+  }
+  else if (value != null && typeof value === "object") {
     coerceTypes(value)
   }
 }
@@ -211,90 +210,4 @@ export function createTargets(platforms: Array<Platform>, type?: string | null, 
 export function build(rawOptions?: CliOptions): Promise<Array<string>> {
   const buildOptions = normalizeOptions(rawOptions || {})
   return _build(buildOptions, new Packager(buildOptions))
-}
-
-/**
- * @private
- */
-export function configureBuildCommand(yargs: yargs.Argv): yargs.Argv {
-  const publishGroup = "Publishing:"
-  const buildGroup = "Building:"
-  return yargs
-    .option("mac", {
-      group: buildGroup,
-      alias: ["m", "o", "macos"],
-      description: `Build for macOS, accepts target list (see ${chalk.underline("https://www.electron.build/mac")}).`,
-      type: "array",
-    })
-    .option("linux", {
-      group: buildGroup,
-      alias: "l",
-      description: `Build for Linux, accepts target list (see ${chalk.underline("https://www.electron.build/linux")})`,
-      type: "array",
-    })
-    .option("win", {
-      group: buildGroup,
-      alias: ["w", "windows"],
-      description: `Build for Windows, accepts target list (see ${chalk.underline("https://www.electron.build/win")})`,
-      type: "array",
-    })
-    .option("x64", {
-      group: buildGroup,
-      description: "Build for x64",
-      type: "boolean",
-    })
-    .option("ia32", {
-      group: buildGroup,
-      description: "Build for ia32",
-      type: "boolean",
-    })
-    .option("armv7l", {
-      group: buildGroup,
-      description: "Build for armv7l",
-      type: "boolean",
-    })
-    .option("arm64", {
-      group: buildGroup,
-      description: "Build for arm64",
-      type: "boolean",
-    })
-    .option("universal", {
-      group: buildGroup,
-      description: "Build for universal",
-      type: "boolean",
-    })
-    .option("dir", {
-      group: buildGroup,
-      description: "Build unpacked dir. Useful to test.",
-      type: "boolean",
-    })
-    .option("publish", {
-      group: publishGroup,
-      alias: "p",
-      description: `Publish artifacts, see ${chalk.underline("https://www.electron.build/publish")}`,
-      choices: ["onTag", "onTagOrDraft", "always", "never", undefined as any],
-    })
-    .option("prepackaged", {
-      alias: ["pd"],
-      group: buildGroup,
-      description: "The path to prepackaged app (to pack in a distributable format)",
-    })
-    .option("projectDir", {
-      alias: ["project"],
-      group: buildGroup,
-      description: "The path to project directory. Defaults to current working directory.",
-    })
-    .option("config", {
-      alias: ["c"],
-      group: buildGroup,
-      description:
-        "The path to an electron-builder config. Defaults to `electron-builder.yml` (or `json`, or `json5`, or `js`, or `ts`), see " +
-        chalk.underline("https://www.electron.build/configuration"),
-    })
-    .group(["help", "version"], "Other:")
-    .example("electron-builder -mwl", "build for macOS, Windows and Linux")
-    .example("electron-builder --linux deb tar.xz", "build deb and tar.xz for Linux")
-    .example("electron-builder --win --ia32", "build for Windows ia32")
-    .example("electron-builder -c.extraMetadata.foo=bar", "set package.json property `foo` to `bar`")
-    .example("electron-builder --config.nsis.unicode=false", "configure unicode options for NSIS")
 }

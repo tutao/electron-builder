@@ -1,54 +1,12 @@
-import { checkBuildRequestOptions } from "app-builder-lib"
 import { PM } from "app-builder-lib/out/node-module-collector/packageManager"
 import { doMergeConfigs } from "app-builder-lib/out/util/config/config"
 import { Arch, createTargets, DIR_TARGET, Platform } from "electron-builder"
-import { createYargs } from "electron-builder/out/builder"
 import { promises as fs } from "fs"
 import { outputFile, outputJson } from "fs-extra"
 import * as path from "path"
 import { app, appTwo, appTwoThrows, assertPack, getFixtureDir, linuxDirTarget, modifyPackageJson, packageJson, toSystemIndependentPath } from "./helpers/packTester"
 import { ELECTRON_VERSION } from "./helpers/testConfig"
 import { verifySmartUnpack } from "./helpers/verifySmartUnpack"
-
-test.ifLinux("cli", ({expect}) => {
-  // because these methods are internal
-  const {configureBuildCommand, normalizeOptions} = require("electron-builder/out/builder")
-  const yargs = createYargs()
-  configureBuildCommand(yargs)
-
-  function parse(input: string): any {
-    const options = normalizeOptions(yargs.parse(input))
-    checkBuildRequestOptions(options)
-    return options
-  }
-
-  expect(parse("-owl --x64 --ia32"))
-  expect(parse("-mwl --x64 --ia32"))
-
-  expect(parse("--dir")).toMatchObject({targets: Platform.current().createTarget(DIR_TARGET)})
-  expect(parse("--mac --dir")).toMatchSnapshot()
-  expect(parse("--x64 --dir")).toMatchObject({targets: Platform.current().createTarget(DIR_TARGET, Arch.x64)})
-
-  expect(parse("--ia32 --x64")).toMatchObject({targets: Platform.current().createTarget(null, Arch.x64, Arch.ia32)})
-  expect(parse("--linux")).toMatchSnapshot()
-  expect(parse("--win")).toMatchSnapshot()
-  expect(parse("-owl")).toMatchSnapshot()
-  expect(parse("-l tar.gz:ia32")).toMatchSnapshot()
-  expect(parse("-l tar.gz:x64")).toMatchSnapshot()
-  expect(parse("-l tar.gz")).toMatchSnapshot()
-  expect(parse("-w tar.gz:x64")).toMatchSnapshot()
-  expect(parse("-p always -w --x64")).toMatchSnapshot()
-  expect(parse("--prepackaged someDir -w --x64")).toMatchSnapshot()
-  expect(parse("--project someDir -w --x64")).toMatchSnapshot()
-
-  expect(parse("-c.compress=store -c.asar -c ./config.json")).toMatchObject({
-    config: {
-      asar: true,
-      compress: "store",
-      extends: "./config.json",
-    },
-  })
-})
 
 test("merge configurations", ({expect}) => {
   const result = doMergeConfigs([
@@ -309,30 +267,6 @@ test.ifWindows("afterSign", ({expect}) => {
       packed: async () => {
         // afterSign is only called when an app is actually signed and ignored otherwise.
         expect(called).toEqual(1)
-        return Promise.resolve()
-      },
-    }
-  )
-})
-
-test.ifNotWindows("beforeBuild", ({expect}) => {
-  let called = 0
-  return assertPack(
-    expect,
-    "test-app-one",
-    {
-      targets: createTargets([Platform.LINUX, Platform.MAC], DIR_TARGET),
-      config: {
-        npmRebuild: true,
-        beforeBuild: async () => {
-          called++
-          return Promise.resolve()
-        },
-      },
-    },
-    {
-      packed: async () => {
-        expect(called).toEqual(2)
         return Promise.resolve()
       },
     }

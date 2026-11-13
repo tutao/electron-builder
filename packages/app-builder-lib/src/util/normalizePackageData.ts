@@ -1,7 +1,3 @@
-import { fromUrl } from "hosted-git-info"
-import * as semver from "semver"
-import { parseUrl } from "./pathManager"
-
 export function normalizePackageData(data: any) {
   for (const it of check) {
     it(data)
@@ -20,18 +16,13 @@ const check = [
         url: data.repository,
       }
     }
-    if (data.repository != null && data.repository.url) {
-      const hosted = fromUrl(data.repository.url)
-      if (hosted) {
-        data.repository.url = hosted.getDefaultRepresentation() == "shortcut" ? hosted.https() : hosted.toString()
-      }
-    }
   },
   function (data: any) {
     const files = data.files
     if (files && !Array.isArray(files)) {
       delete data.files
-    } else if (data.files) {
+    }
+    else if (data.files) {
       data.files = data.files.filter(function (file: any) {
         return !(!file || typeof file !== "string")
       })
@@ -46,7 +37,8 @@ const check = [
       const match = data.name.match(/^@[^/]+[/](.*)$/)
       if (match) {
         b[match[1]] = data.bin
-      } else {
+      }
+      else {
         b[data.name] = data.bin
       }
       data.bin = b
@@ -78,45 +70,7 @@ const check = [
         if (typeof r !== "string") {
           delete data[deps][d]
         }
-        const hosted = fromUrl(data[deps][d])
-        if (hosted) {
-          data[deps][d] = hosted.toString()
-        }
       })
-    }
-  },
-  function fixBugsField(data: any) {
-    if (!data.bugs && data.repository && data.repository.url) {
-      const hosted = fromUrl(data.repository.url)
-      if (hosted && hosted.bugs()) {
-        data.bugs = { url: hosted.bugs() }
-      }
-    } else if (data.bugs) {
-      const emailRe = /^.+@.*\..+$/
-      if (typeof data.bugs == "string") {
-        if (emailRe.test(data.bugs)) {
-          data.bugs = { email: data.bugs }
-        } else if (parseUrl(data.bugs)?.protocol) {
-          data.bugs = { url: data.bugs }
-        }
-      } else {
-        bugsTypos(data.bugs)
-        const oldBugs = data.bugs
-        data.bugs = {}
-        if (oldBugs.url) {
-          if (typeof oldBugs.url == "string" && parseUrl(oldBugs.url)?.protocol) {
-            data.bugs.url = oldBugs.url
-          }
-        }
-        if (oldBugs.email) {
-          if (typeof oldBugs.email == "string" && emailRe.test(oldBugs.email)) {
-            data.bugs.email = oldBugs.email
-          }
-        }
-      }
-      if (!data.bugs.email && !data.bugs.url) {
-        delete data.bugs
-      }
     }
   },
   function fixModulesField(data: any) {
@@ -130,23 +84,12 @@ const check = [
     }
     if (data.keywords && !Array.isArray(data.keywords)) {
       delete data.keywords
-    } else if (data.keywords) {
+    }
+    else if (data.keywords) {
       data.keywords = data.keywords.filter(function (kw: any) {
         return !(typeof kw !== "string" || !kw)
       })
     }
-  },
-  function fixVersionField(data: any) {
-    const loose = true
-    if (!data.version) {
-      data.version = ""
-      return true
-    }
-    if (!semver.valid(data.version, loose)) {
-      throw new Error(`Invalid version: "${data.version}"`)
-    }
-    data.version = semver.clean(data.version, loose)
-    return true
   },
   function fixPeople(data: any) {
     modifyPeople(data, unParsePerson)
@@ -163,25 +106,6 @@ const check = [
     data.name = data.name.trim()
     ensureValidName(data.name)
   },
-  function fixHomepageField(data: any) {
-    if (!data.homepage && data.repository && data.repository.url) {
-      const hosted = fromUrl(data.repository.url)
-      if (hosted && hosted.docs()) {
-        data.homepage = hosted.docs()
-      }
-    }
-    if (!data.homepage) {
-      return
-    }
-
-    if (typeof data.homepage !== "string") {
-      delete data.homepage
-    }
-    if (!parseUrl(data.homepage)?.protocol) {
-      data.homepage = `https://${data.homepage}`
-    }
-    return
-  },
 ]
 
 function fixBundleDependenciesField(data: any) {
@@ -193,11 +117,13 @@ function fixBundleDependenciesField(data: any) {
   }
   if (data[bd] && !Array.isArray(data[bd])) {
     delete data[bd]
-  } else if (data[bd]) {
+  }
+  else if (data[bd]) {
     data[bd] = data[bd].filter(function (bd: any) {
       if (!bd || typeof bd !== "string") {
         return false
-      } else {
+      }
+      else {
         if (!data.dependencies) {
           data.dependencies = {}
         }
@@ -318,16 +244,4 @@ function objectifyDeps(data: any) {
   })
 }
 
-const typoBugs: any = { web: "url", name: "url" }
 
-function bugsTypos(bugs: any) {
-  if (!bugs) {
-    return
-  }
-  Object.keys(bugs).forEach(function (k) {
-    if (typoBugs[k]) {
-      bugs[typoBugs[k]] = bugs[k]
-      delete bugs[k]
-    }
-  })
-}

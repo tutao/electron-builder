@@ -1,5 +1,11 @@
 import * as get from "@electron/get"
+import { CacheState } from "app-builder-lib/out/util/cacheState"
+import { ArtifactDownloadOptions, buildElectronArtifactConfig, defaultElectronGetCacheRoot, downloadBuilderToolset, downloadElectronArtifact, ElectronDownloadOptions, ElectronGetOptions, getBinariesMirrorUrl, getCacheDirectory, parseChecksumFile, resolveSeededChecksums, } from "app-builder-lib/out/util/electronGet"
+// parseExpectedChecksum is marked @internal, so it is stripped from the published .d.ts —
+// import the implementation directly like extractArchiveTest does for isSafeExtractPath.
+import * as electronGetInternal from "app-builder-lib/src/util/electronGet"
 import { exec } from "builder-util"
+import * as crypto from "crypto"
 import * as fs from "fs/promises"
 import * as http from "http"
 import * as net from "net"
@@ -7,26 +13,9 @@ import * as os from "os"
 import * as path from "path"
 import * as tar from "tar"
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest"
-import * as crypto from "crypto"
-import {
-  ArtifactDownloadOptions,
-  ElectronDownloadOptions,
-  ElectronGetOptions,
-  downloadBuilderToolset,
-  downloadElectronArtifact,
-  getCacheDirectory,
-  getBinariesMirrorUrl,
-  buildElectronArtifactConfig,
-  defaultElectronGetCacheRoot,
-  parseChecksumFile,
-  resolveSeededChecksums,
-} from "app-builder-lib/out/util/electronGet"
-// parseExpectedChecksum is marked @internal, so it is stripped from the published .d.ts —
-// import the implementation directly like extractArchiveTest does for isSafeExtractPath.
-import * as electronGetInternal from "app-builder-lib/src/util/electronGet"
-const { parseExpectedChecksum } = electronGetInternal as any
-import { CacheState } from "app-builder-lib/out/util/cacheState"
 import { ELECTRON_VERSION } from "./helpers/testConfig"
+
+const {parseExpectedChecksum} = electronGetInternal as any
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -42,9 +31,10 @@ async function createMinimalTarGz(archivePath: string, files: Record<string, str
     for (const [name, content] of Object.entries(files)) {
       await fs.writeFile(path.join(innerDir, name), content)
     }
-    await tar.create({ gzip: true, file: archivePath, cwd: tmpDir }, ["inner"])
-  } finally {
-    await fs.rm(tmpDir, { recursive: true, force: true })
+    await tar.create({gzip: true, file: archivePath, cwd: tmpDir}, ["inner"])
+  }
+  finally {
+    await fs.rm(tmpDir, {recursive: true, force: true})
   }
 }
 
@@ -65,7 +55,7 @@ async function startArtifactServer(filePath: string, servedPath: string): Promis
     }
     fs.readFile(filePath).then(
       data => {
-        res.writeHead(200, { "content-type": "application/octet-stream", "content-length": data.length })
+        res.writeHead(200, {"content-type": "application/octet-stream", "content-length": data.length})
         res.end(data)
       },
       () => {
@@ -75,8 +65,8 @@ async function startArtifactServer(filePath: string, servedPath: string): Promis
     )
   })
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve))
-  const { port } = server.address() as net.AddressInfo
-  return { port, close: () => new Promise<void>(resolve => server.close(() => resolve())) }
+  const {port} = server.address() as net.AddressInfo
+  return {port, close: () => new Promise<void>(resolve => server.close(() => resolve()))}
 }
 
 // ─── getCacheDirectory ────────────────────────────────────────────────────────
@@ -86,94 +76,96 @@ describe("getCacheDirectory", () => {
     vi.unstubAllEnvs()
   })
 
-  test("returns ELECTRON_BUILDER_CACHE when set", ({ expect }) => {
+  test("returns ELECTRON_BUILDER_CACHE when set", ({expect}) => {
     vi.stubEnv("ELECTRON_BUILDER_CACHE", "/custom/cache")
-    expect(getCacheDirectory({ allowEnvVarOverride: true })).toBe("/custom/cache")
+    expect(getCacheDirectory({allowEnvVarOverride: true})).toBe("/custom/cache")
   })
 
-  test("trims whitespace from ELECTRON_BUILDER_CACHE", ({ expect }) => {
+  test("trims whitespace from ELECTRON_BUILDER_CACHE", ({expect}) => {
     vi.stubEnv("ELECTRON_BUILDER_CACHE", "  /padded/path  ")
-    expect(getCacheDirectory({ allowEnvVarOverride: true })).toBe("/padded/path")
+    expect(getCacheDirectory({allowEnvVarOverride: true})).toBe("/padded/path")
   })
 
-  test("returns platform-appropriate default when env var is absent", ({ expect }) => {
+  test("returns platform-appropriate default when env var is absent", ({expect}) => {
     vi.stubEnv("ELECTRON_BUILDER_CACHE", "")
-    const result = getCacheDirectory({ allowEnvVarOverride: true })
+    const result = getCacheDirectory({allowEnvVarOverride: true})
     expect(typeof result).toBe("string")
     expect(result.length).toBeGreaterThan(0)
     if (process.platform === "darwin") {
       expect(result).toContain("Library/Caches/electron-builder")
-    } else if (process.platform === "win32") {
+    }
+    else if (process.platform === "win32") {
       expect(result.toLowerCase()).toContain("electron-builder")
-    } else {
+    }
+    else {
       expect(result).toContain("electron-builder")
     }
   })
 
-  test("respects XDG_CACHE_HOME on linux", ({ expect }) => {
+  test("respects XDG_CACHE_HOME on linux", ({expect}) => {
     if (process.platform !== "linux") {
       expect(true).toBe(true) // skip assertion on non-linux
       return
     }
     vi.stubEnv("ELECTRON_BUILDER_CACHE", "")
     vi.stubEnv("XDG_CACHE_HOME", "/xdg/cache")
-    expect(getCacheDirectory({ allowEnvVarOverride: true })).toBe("/xdg/cache/electron-builder")
+    expect(getCacheDirectory({allowEnvVarOverride: true})).toBe("/xdg/cache/electron-builder")
   })
 
-  test("falls back to tmpdir when LOCALAPPDATA is absent on Windows", ({ expect }) => {
+  test("falls back to tmpdir when LOCALAPPDATA is absent on Windows", ({expect}) => {
     if (process.platform !== "win32") {
       expect(true).toBe(true)
       return
     }
     vi.stubEnv("LOCALAPPDATA", "")
-    const result = getCacheDirectory({ isAvoidSystemOnWindows: true, allowEnvVarOverride: false })
+    const result = getCacheDirectory({isAvoidSystemOnWindows: true, allowEnvVarOverride: false})
     expect(result).toContain(os.tmpdir())
   })
 
-  test("allowEnvVarOverride:false ignores ELECTRON_BUILDER_CACHE even when set", ({ expect }) => {
+  test("allowEnvVarOverride:false ignores ELECTRON_BUILDER_CACHE even when set", ({expect}) => {
     vi.stubEnv("ELECTRON_BUILDER_CACHE", "/custom/cache")
-    const result = getCacheDirectory({ allowEnvVarOverride: false })
+    const result = getCacheDirectory({allowEnvVarOverride: false})
     expect(result).not.toBe("/custom/cache")
     expect(result).toContain("electron-builder")
   })
 
-  test("ignores ELECTRON_BUILDER_CACHE when value has no filesystem root (relative path)", ({ expect }) => {
+  test("ignores ELECTRON_BUILDER_CACHE when value has no filesystem root (relative path)", ({expect}) => {
     vi.stubEnv("ELECTRON_BUILDER_CACHE", "relative/path/no-root")
-    const result = getCacheDirectory({ allowEnvVarOverride: true })
+    const result = getCacheDirectory({allowEnvVarOverride: true})
     expect(result).not.toBe("relative/path/no-root")
     expect(result).toContain("electron-builder")
   })
 
-  test("falls back to tmpdir when USERNAME is 'system' (isAvoidSystemOnWindows defaults to true)", ({ expect }) => {
+  test("falls back to tmpdir when USERNAME is 'system' (isAvoidSystemOnWindows defaults to true)", ({expect}) => {
     if (process.platform !== "win32") {
       expect(true).toBe(true)
       return
     }
     vi.stubEnv("LOCALAPPDATA", "C:\\Users\\system\\AppData\\Local")
     vi.stubEnv("USERNAME", "system")
-    const result = getCacheDirectory({ allowEnvVarOverride: false })
+    const result = getCacheDirectory({allowEnvVarOverride: false})
     expect(result).toContain(os.tmpdir())
   })
 
-  test("falls back to tmpdir when LOCALAPPDATA path contains \\windows\\system32\\", ({ expect }) => {
+  test("falls back to tmpdir when LOCALAPPDATA path contains \\windows\\system32\\", ({expect}) => {
     if (process.platform !== "win32") {
       expect(true).toBe(true)
       return
     }
     vi.stubEnv("LOCALAPPDATA", "C:\\Windows\\System32\\config\\systemprofile\\AppData\\Local")
     vi.stubEnv("USERNAME", "not-system")
-    const result = getCacheDirectory({ allowEnvVarOverride: false })
+    const result = getCacheDirectory({allowEnvVarOverride: false})
     expect(result).toContain(os.tmpdir())
   })
 
-  test("isAvoidSystemOnWindows:false does not fall back to tmpdir for USERNAME=system", ({ expect }) => {
+  test("isAvoidSystemOnWindows:false does not fall back to tmpdir for USERNAME=system", ({expect}) => {
     if (process.platform !== "win32") {
       expect(true).toBe(true)
       return
     }
     vi.stubEnv("LOCALAPPDATA", "C:\\Users\\system\\AppData\\Local")
     vi.stubEnv("USERNAME", "system")
-    const result = getCacheDirectory({ isAvoidSystemOnWindows: false, allowEnvVarOverride: false })
+    const result = getCacheDirectory({isAvoidSystemOnWindows: false, allowEnvVarOverride: false})
     expect(result).not.toContain(os.tmpdir())
     expect(result).toContain("electron-builder")
   })
@@ -198,35 +190,35 @@ describe("getBinariesMirrorUrl", () => {
     }
   })
 
-  test("returns GitHub default when no env var is set", ({ expect }) => {
+  test("returns GitHub default when no env var is set", ({expect}) => {
     expect(getBinariesMirrorUrl("my-org/my-repo")).toBe("https://github.com/my-org/my-repo/releases/download/")
   })
 
-  test("uses the provided githubOrgRepo in the default URL", ({ expect }) => {
+  test("uses the provided githubOrgRepo in the default URL", ({expect}) => {
     expect(getBinariesMirrorUrl("electron-userland/electron-builder-binaries")).toBe("https://github.com/electron-userland/electron-builder-binaries/releases/download/")
   })
 
-  test("ELECTRON_BUILDER_BINARIES_MIRROR overrides the GitHub default", ({ expect }) => {
+  test("ELECTRON_BUILDER_BINARIES_MIRROR overrides the GitHub default", ({expect}) => {
     vi.stubEnv("ELECTRON_BUILDER_BINARIES_MIRROR", "https://mirror.example.com/")
     expect(getBinariesMirrorUrl("any/repo")).toBe("https://mirror.example.com/")
   })
 
-  test("npm_package_config_electron_builder_binaries_mirror is recognised", ({ expect }) => {
+  test("npm_package_config_electron_builder_binaries_mirror is recognised", ({expect}) => {
     vi.stubEnv("npm_package_config_electron_builder_binaries_mirror", "https://package-config.example.com/")
     expect(getBinariesMirrorUrl("any/repo")).toBe("https://package-config.example.com/")
   })
 
-  test("npm_config_electron_builder_binaries_mirror (lowercase) is recognised", ({ expect }) => {
+  test("npm_config_electron_builder_binaries_mirror (lowercase) is recognised", ({expect}) => {
     vi.stubEnv("npm_config_electron_builder_binaries_mirror", "https://lowercase.example.com/")
     expect(getBinariesMirrorUrl("any/repo")).toBe("https://lowercase.example.com/")
   })
 
-  test("NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR (uppercase) is recognised", ({ expect }) => {
+  test("NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR (uppercase) is recognised", ({expect}) => {
     vi.stubEnv("NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR", "https://uppercase.example.com/")
     expect(getBinariesMirrorUrl("any/repo")).toBe("https://uppercase.example.com/")
   })
 
-  test("priority: NPM_CONFIG_ > npm_config_ > npm_package_config_ > ELECTRON_BUILDER_BINARIES_MIRROR", ({ expect }) => {
+  test("priority: NPM_CONFIG_ > npm_config_ > npm_package_config_ > ELECTRON_BUILDER_BINARIES_MIRROR", ({expect}) => {
     vi.stubEnv("ELECTRON_BUILDER_BINARIES_MIRROR", "https://priority-4.example.com/")
     vi.stubEnv("npm_package_config_electron_builder_binaries_mirror", "https://priority-3.example.com/")
     vi.stubEnv("npm_config_electron_builder_binaries_mirror", "https://priority-2.example.com/")
@@ -234,7 +226,7 @@ describe("getBinariesMirrorUrl", () => {
     expect(getBinariesMirrorUrl("any/repo")).toBe("https://priority-1.example.com/")
   })
 
-  test("npm_config_ beats npm_package_config_ when NPM_CONFIG_ is absent", ({ expect }) => {
+  test("npm_config_ beats npm_package_config_ when NPM_CONFIG_ is absent", ({expect}) => {
     vi.stubEnv("NPM_CONFIG_ELECTRON_BUILDER_BINARIES_MIRROR", "") // ensure higher-priority var is absent
     vi.stubEnv("npm_package_config_electron_builder_binaries_mirror", "https://priority-3.example.com/")
     vi.stubEnv("npm_config_electron_builder_binaries_mirror", "https://priority-2.example.com/")
@@ -252,7 +244,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await fs.rm(testCacheDir, { recursive: true, force: true })
+  await fs.rm(testCacheDir, {recursive: true, force: true})
 })
 
 // ─── downloadArtifact: generic artifacts (.tar.gz) ───────────────────────────
@@ -261,22 +253,22 @@ afterAll(async () => {
 const APPIMAGE_RELEASE = "appimage@1.0.3"
 const APPIMAGE_FILE = "appimage-tools-runtime-20251108.tar.gz"
 const APPIMAGE_SHA256 = "84021a78ee214ae6fd33a2d62a92ba25542dd10bc86bf117a9b2d0bba44e7665"
-const DOWNLOAD_TIMEOUT = { timeout: 120_000 }
+const DOWNLOAD_TIMEOUT = {timeout: 120_000}
 
 // sequential: tests share the same extractDir (same release + file + mirror → same hash suffix).
 // Running them concurrently causes proper-lockfile contention: the first download holds the lock
 // longer than the retry budget allows. Sequential order ensures test 1 writes the complete state
 // before tests 2 and 3 run, so they hit the pre-lock cache fast-path instead of waiting on the lock.
-describe("downloadBuilderToolset", { sequential: true }, () => {
+describe("downloadBuilderToolset", {sequential: true}, () => {
   afterEach(() => {
     vi.unstubAllEnvs()
   })
 
-  test("downloadArtifact: downloads and extracts appimage@1.0.3 tar.gz with sha256 checksum", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadArtifact: downloads and extracts appimage@1.0.3 tar.gz with sha256 checksum", DOWNLOAD_TIMEOUT, async ({expect}) => {
     const result = await downloadBuilderToolset({
       releaseName: APPIMAGE_RELEASE,
       filenameWithExt: APPIMAGE_FILE,
-      checksums: { [APPIMAGE_FILE]: APPIMAGE_SHA256 },
+      checksums: {[APPIMAGE_FILE]: APPIMAGE_SHA256},
     })
 
     expect(typeof result).toBe("string")
@@ -292,16 +284,16 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
     expect(entries).toContain("desktop-file-validate")
   })
 
-  test("downloadArtifact: second call returns same cached path without re-downloading", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadArtifact: second call returns same cached path without re-downloading", DOWNLOAD_TIMEOUT, async ({expect}) => {
     const first = await downloadBuilderToolset({
       releaseName: APPIMAGE_RELEASE,
       filenameWithExt: APPIMAGE_FILE,
-      checksums: { [APPIMAGE_FILE]: APPIMAGE_SHA256 },
+      checksums: {[APPIMAGE_FILE]: APPIMAGE_SHA256},
     })
     const second = await downloadBuilderToolset({
       releaseName: APPIMAGE_RELEASE,
       filenameWithExt: APPIMAGE_FILE,
-      checksums: { [APPIMAGE_FILE]: APPIMAGE_SHA256 },
+      checksums: {[APPIMAGE_FILE]: APPIMAGE_SHA256},
     })
 
     expect(first).toBe(second)
@@ -310,13 +302,13 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
     expect(JSON.parse(stateRaw).state).toBe(CacheState.complete)
   })
 
-  test("downloadArtifact: respects ELECTRON_BUILDER_BINARIES_MIRROR env var", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadArtifact: respects ELECTRON_BUILDER_BINARIES_MIRROR env var", DOWNLOAD_TIMEOUT, async ({expect}) => {
     vi.stubEnv("ELECTRON_BUILDER_BINARIES_MIRROR", "https://github.com/electron-userland/electron-builder-binaries/releases/download/")
 
     const result = await downloadBuilderToolset({
       releaseName: APPIMAGE_RELEASE,
       filenameWithExt: APPIMAGE_FILE,
-      checksums: { [APPIMAGE_FILE]: APPIMAGE_SHA256 },
+      checksums: {[APPIMAGE_FILE]: APPIMAGE_SHA256},
     })
 
     expect(typeof result).toBe("string")
@@ -324,14 +316,14 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
     expect(stat.isDirectory()).toBe(true)
   })
 
-  test("downloadArtifact: rejects when sha256 checksum does not match", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadArtifact: rejects when sha256 checksum does not match", DOWNLOAD_TIMEOUT, async ({expect}) => {
     // Use a different release name (1.0.2 vs 1.0.3) so this test gets its own cold cache entry.
     // The cache-hit path skips checksum validation entirely, so we must avoid a pre-populated cache.
     await expect(
       downloadBuilderToolset({
         releaseName: "appimage@1.0.2",
         filenameWithExt: APPIMAGE_FILE,
-        checksums: { [APPIMAGE_FILE]: "0000000000000000000000000000000000000000000000000000000000000000" },
+        checksums: {[APPIMAGE_FILE]: "0000000000000000000000000000000000000000000000000000000000000000"},
       })
     ).rejects.toThrow()
   })
@@ -342,7 +334,7 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
   // Using resolveAssetURL bypasses that env var check entirely.
   // This test intercepts the config actually passed to get.downloadArtifact and verifies
   // that resolveAssetURL() returns the builder-binaries URL even when ELECTRON_MIRROR is set.
-  test("ELECTRON_MIRROR env var does not corrupt builder-binaries download URL (#9752)", async ({ expect }) => {
+  test("ELECTRON_MIRROR env var does not corrupt builder-binaries download URL (#9752)", async ({expect}) => {
     vi.stubEnv("ELECTRON_MIRROR", "https://cdn.npmmirror.com/binaries/electron/")
 
     let resolvedUrl: string | undefined
@@ -372,7 +364,7 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
   // Also asserts the cache dir name now strips the full ".tar.7z" extension — a deliberate
   // rename that busts caches poisoned by the broken extraction (the old "<name>.tar-<hash>"
   // dirs pass the cache-complete check and would otherwise never be re-extracted).
-  test("toolset .tar.7z is extracted through both layers and gets a cache-busting dir name (#10002)", { timeout: 120_000 }, async ({ expect }) => {
+  test("toolset .tar.7z is extracted through both layers and gets a cache-busting dir name (#10002)", {timeout: 120_000}, async ({expect}) => {
     // Resolve a real 7za binary BEFORE stubbing the mirror/cache env vars, then pin it via
     // ELECTRON_BUILDER_7ZIP_PATH for the rest of the test. Pinning matters: extractArchive calls
     // getPath7za() through its own module instance, and under vitest the test file and the library
@@ -381,7 +373,7 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
     // instance cold in CI, so it re-resolved 7za AFTER the mirror was stubbed and downloaded our
     // fixture bytes as "7zip-<platform>.tar.gz", failing the toolset checksum. The env var is read
     // from process.env at call time by every instance, making resolution instance-agnostic.
-    const { getPath7za } = await import("app-builder-lib/out/toolsets/7zip")
+    const {getPath7za} = await import("app-builder-lib/out/toolsets/7zip")
     const cmd7za = await getPath7za()
     vi.stubEnv("ELECTRON_BUILDER_7ZIP_PATH", cmd7za)
 
@@ -392,13 +384,13 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
     let server: { port: number; close: () => Promise<void> } | undefined
     try {
       const contentDir = path.join(fixtureDir, "content")
-      await fs.mkdir(path.join(contentDir, "usr", "share"), { recursive: true })
-      await fs.writeFile(path.join(contentDir, "desktop-init.sh"), "#!/bin/bash\ntrue\n", { mode: 0o755 })
+      await fs.mkdir(path.join(contentDir, "usr", "share"), {recursive: true})
+      await fs.writeFile(path.join(contentDir, "desktop-init.sh"), "#!/bin/bash\ntrue\n", {mode: 0o755})
       await fs.writeFile(path.join(contentDir, "usr", "share", "marker.txt"), "ok")
       const innerTar = path.join(fixtureDir, "snap-template-test-amd64.tar")
       // explicit "./"-prefixed entries so node-tar stores "./"-prefixed names like the real template tars
       await tar.create(
-        { file: innerTar, cwd: contentDir },
+        {file: innerTar, cwd: contentDir},
         (await fs.readdir(contentDir)).map(e => `./${e}`)
       )
       const servedArchive = path.join(fixtureDir, "snap-template-test-amd64.tar.7z")
@@ -408,7 +400,7 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
       server = await startArtifactServer(servedArchive, "/snap-template-test/snap-template-test-amd64.tar.7z")
       vi.stubEnv("ELECTRON_BUILDER_BINARIES_MIRROR", `http://127.0.0.1:${server.port}/`)
 
-      const result = await downloadBuilderToolset({ releaseName: "snap-template-test", filenameWithExt: "snap-template-test-amd64.tar.7z" })
+      const result = await downloadBuilderToolset({releaseName: "snap-template-test", filenameWithExt: "snap-template-test-amd64.tar.7z"})
 
       // both layers extracted: template files at the toolset root, no stray inner .tar
       const entries = await fs.readdir(result)
@@ -421,10 +413,11 @@ describe("downloadBuilderToolset", { sequential: true }, () => {
       // producing "<name>.tar-<hash>" dirs that hold the broken single-tar extraction)
       expect(path.basename(result)).toMatch(/^snap-template-test-amd64-/)
       expect(path.basename(result)).not.toContain(".tar")
-    } finally {
+    }
+    finally {
       await server?.close()
-      await fs.rm(fixtureDir, { recursive: true, force: true })
-      await fs.rm(freshTestCache, { recursive: true, force: true })
+      await fs.rm(fixtureDir, {recursive: true, force: true})
+      await fs.rm(freshTestCache, {recursive: true, force: true})
     }
   })
 })
@@ -439,8 +432,8 @@ describe("downloadBuilderToolset: filenameWithExt validation", () => {
     ["dotdot embedded", "foo/../bar.tar.gz"],
   ]
   for (const [label, filenameWithExt] of cases) {
-    test(`rejects unsafe filenameWithExt: ${label}`, async ({ expect }) => {
-      await expect(downloadBuilderToolset({ releaseName: "x", filenameWithExt })).rejects.toThrow(/unsafe filenameWithExt/)
+    test(`rejects unsafe filenameWithExt: ${label}`, async ({expect}) => {
+      await expect(downloadBuilderToolset({releaseName: "x", filenameWithExt})).rejects.toThrow(/unsafe filenameWithExt/)
     })
   }
 })
@@ -458,33 +451,33 @@ describe("toolset archive cache", () => {
   afterEach(async () => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
-    await fs.rm(freshCache, { recursive: true, force: true })
+    await fs.rm(freshCache, {recursive: true, force: true})
   })
 
-  test("uses pre-existing archive and does not call downloadArtifact", async ({ expect }) => {
+  test("uses pre-existing archive and does not call downloadArtifact", async ({expect}) => {
     const releaseName = "cache-test@0.1"
     const fileName = "cache-artifact.tar.gz"
     // Seed the predictable archive cache path
     const archiveCachePath = path.join(freshCache, releaseName, fileName)
-    await fs.mkdir(path.dirname(archiveCachePath), { recursive: true })
-    await createMinimalTarGz(archiveCachePath, { sentinel: "ok" })
+    await fs.mkdir(path.dirname(archiveCachePath), {recursive: true})
+    await createMinimalTarGz(archiveCachePath, {sentinel: "ok"})
 
     const spy = vi.spyOn(get, "downloadArtifact").mockImplementation(() => {
       throw new Error("downloadArtifact must not be called — archive is already cached")
     })
 
-    const result = await downloadBuilderToolset({ releaseName, filenameWithExt: fileName })
+    const result = await downloadBuilderToolset({releaseName, filenameWithExt: fileName})
 
     expect(spy).not.toHaveBeenCalled()
     const entries = await fs.readdir(result)
     expect(entries).toContain("sentinel")
   })
 
-  test("re-downloads and replaces archive when checksum does not match", async ({ expect }) => {
+  test("re-downloads and replaces archive when checksum does not match", async ({expect}) => {
     const releaseName = "checksum-test@0.1"
     const fileName = "bad-checksum.tar.gz"
     const archiveCachePath = path.join(freshCache, releaseName, fileName)
-    await fs.mkdir(path.dirname(archiveCachePath), { recursive: true })
+    await fs.mkdir(path.dirname(archiveCachePath), {recursive: true})
     // Write a corrupt (wrong-checksum) archive
     await fs.writeFile(archiveCachePath, "corrupt data")
 
@@ -495,26 +488,26 @@ describe("toolset archive cache", () => {
     })
 
     const correctSha256 = "0000000000000000000000000000000000000000000000000000000000000000"
-    await expect(downloadBuilderToolset({ releaseName, filenameWithExt: fileName, checksums: { [fileName]: correctSha256 } })).rejects.toThrow("expected-download-attempt")
+    await expect(downloadBuilderToolset({releaseName, filenameWithExt: fileName, checksums: {[fileName]: correctSha256}})).rejects.toThrow("expected-download-attempt")
 
     expect(downloadArtifactCalled).toBe(true)
   })
 
-  test("persists downloaded archive to cache so subsequent builds skip the download", async ({ expect }) => {
+  test("persists downloaded archive to cache so subsequent builds skip the download", async ({expect}) => {
     const releaseName = "persist-test@0.1"
     const fileName = "persist-artifact.tar.gz"
     const archiveCachePath = path.join(freshCache, releaseName, fileName)
 
     // First call: downloadArtifact returns a real archive
     const networkArchive = path.join(freshCache, "fake-network-download.tar.gz")
-    await createMinimalTarGz(networkArchive, { "network-file": "content" })
+    await createMinimalTarGz(networkArchive, {"network-file": "content"})
     let callCount = 0
     vi.spyOn(get, "downloadArtifact").mockImplementation(() => {
       callCount++
       return Promise.resolve(networkArchive)
     })
 
-    await downloadBuilderToolset({ releaseName, filenameWithExt: fileName })
+    await downloadBuilderToolset({releaseName, filenameWithExt: fileName})
     expect(callCount).toBe(1)
     // Archive must have been persisted
     await expect(fs.access(archiveCachePath)).resolves.toBeUndefined()
@@ -525,7 +518,7 @@ describe("toolset archive cache", () => {
       throw new Error("downloadArtifact must not be called on second build")
     })
 
-    const result2 = await downloadBuilderToolset({ releaseName, filenameWithExt: fileName })
+    const result2 = await downloadBuilderToolset({releaseName, filenameWithExt: fileName})
     const entries = await fs.readdir(result2)
     expect(entries).toContain("network-file")
   })
@@ -549,16 +542,16 @@ describe("downloadBuilderToolset checksum formats (#10040)", () => {
   afterEach(async () => {
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
-    await fs.rm(freshCache, { recursive: true, force: true })
+    await fs.rm(freshCache, {recursive: true, force: true})
   })
 
-  test("parseExpectedChecksum classifies sha256 hex, base64 sha512, and rejects everything else", ({ expect }) => {
+  test("parseExpectedChecksum classifies sha256 hex, base64 sha512, and rejects everything else", ({expect}) => {
     const hex = "84021a78ee214ae6fd33a2d62a92ba25542dd10bc86bf117a9b2d0bba44e7665"
-    expect(parseExpectedChecksum("f", hex)).toEqual({ algorithm: "sha256", encoding: "hex", value: hex })
+    expect(parseExpectedChecksum("f", hex)).toEqual({algorithm: "sha256", encoding: "hex", value: hex})
 
     // the documented customNsisBinary default checksum (base64-encoded sha512)
     const base64 = "VKMiizYdmNdJOWpRGz4trl4lD++BvYP2irAXpMilheUP0pc93iKlWAoP843Vlraj8YG19CVn0j+dCo/hURz9+Q=="
-    expect(parseExpectedChecksum("f", base64)).toEqual({ algorithm: "sha512", encoding: "base64", value: base64 })
+    expect(parseExpectedChecksum("f", base64)).toEqual({algorithm: "sha512", encoding: "base64", value: base64})
 
     expect(() => parseExpectedChecksum("f", "not-a-checksum")).toThrow(/Unrecognized checksum format/)
     expect(() => parseExpectedChecksum("f", "not-a-checksum")).toThrow(/Accepted formats/)
@@ -566,7 +559,7 @@ describe("downloadBuilderToolset checksum formats (#10040)", () => {
     expect(() => parseExpectedChecksum("f", "ab".repeat(64))).toThrow(/Unrecognized checksum format/)
   })
 
-  test("sha256 hex checksums are passed through to @electron/get unchanged", async ({ expect }) => {
+  test("sha256 hex checksums are passed through to @electron/get unchanged", async ({expect}) => {
     const fileName = "hex-passthrough.tar.gz"
     const sha256 = "84021a78ee214ae6fd33a2d62a92ba25542dd10bc86bf117a9b2d0bba44e7665"
     let captured: any
@@ -575,17 +568,17 @@ describe("downloadBuilderToolset checksum formats (#10040)", () => {
       throw new Error("mock-stop")
     })
 
-    await expect(downloadBuilderToolset({ releaseName: "hex-passthrough@0.1", filenameWithExt: fileName, checksums: { [fileName]: sha256 } })).rejects.toThrow("mock-stop")
+    await expect(downloadBuilderToolset({releaseName: "hex-passthrough@0.1", filenameWithExt: fileName, checksums: {[fileName]: sha256}})).rejects.toThrow("mock-stop")
 
-    expect(captured.checksums).toEqual({ [fileName]: sha256 })
+    expect(captured.checksums).toEqual({[fileName]: sha256})
     expect(captured.unsafelyDisableChecksums).toBeUndefined()
   })
 
-  test("base64 sha512 checksum: @electron/get validation is bypassed and the download verifies manually (#10040)", { timeout: 60_000 }, async ({ expect }) => {
+  test("base64 sha512 checksum: @electron/get validation is bypassed and the download verifies manually (#10040)", {timeout: 60_000}, async ({expect}) => {
     const releaseName = "sha512-happy@0.1"
     const fileName = "sha512-artifact.tar.gz"
     const fixture = path.join(freshCache, "fixture.tar.gz")
-    await createMinimalTarGz(fixture, { sentinel: "sha512-ok" })
+    await createMinimalTarGz(fixture, {sentinel: "sha512-ok"})
     const sha512 = digestOf(await fs.readFile(fixture), "sha512", "base64")
 
     const realDownloadArtifact = get.downloadArtifact
@@ -598,10 +591,11 @@ describe("downloadBuilderToolset checksum formats (#10040)", () => {
     const server = await startArtifactServer(fixture, `/${releaseName}/${fileName}`)
     vi.stubEnv("ELECTRON_BUILDER_BINARIES_MIRROR", `http://127.0.0.1:${server.port}/`)
     try {
-      const result = await downloadBuilderToolset({ releaseName, filenameWithExt: fileName, checksums: { [fileName]: sha512 } })
+      const result = await downloadBuilderToolset({releaseName, filenameWithExt: fileName, checksums: {[fileName]: sha512}})
       const entries = await fs.readdir(result)
       expect(entries).toContain("sentinel")
-    } finally {
+    }
+    finally {
       spy.mockRestore()
       await server.close()
     }
@@ -613,43 +607,44 @@ describe("downloadBuilderToolset checksum formats (#10040)", () => {
     await expect(fs.access(path.join(freshCache, releaseName, fileName))).resolves.toBeUndefined()
   })
 
-  test("base64 sha512 checksum mismatch: throws with expected vs actual and removes the download", { timeout: 60_000 }, async ({ expect }) => {
+  test("base64 sha512 checksum mismatch: throws with expected vs actual and removes the download", {timeout: 60_000}, async ({expect}) => {
     const releaseName = "sha512-mismatch@0.1"
     const fileName = "sha512-corrupt.tar.gz"
     const fixture = path.join(freshCache, "fixture.tar.gz")
-    await createMinimalTarGz(fixture, { sentinel: "served-bytes" })
+    await createMinimalTarGz(fixture, {sentinel: "served-bytes"})
     const wrongSha512 = digestOf("some other content entirely", "sha512", "base64")
     const actualSha512 = digestOf(await fs.readFile(fixture), "sha512", "base64")
 
     const server = await startArtifactServer(fixture, `/${releaseName}/${fileName}`)
     vi.stubEnv("ELECTRON_BUILDER_BINARIES_MIRROR", `http://127.0.0.1:${server.port}/`)
     try {
-      const promise = downloadBuilderToolset({ releaseName, filenameWithExt: fileName, checksums: { [fileName]: wrongSha512 } })
+      const promise = downloadBuilderToolset({releaseName, filenameWithExt: fileName, checksums: {[fileName]: wrongSha512}})
       await expect(promise).rejects.toThrow(/sha512 checksum mismatch/)
       await expect(promise).rejects.toThrow(wrongSha512)
       await expect(promise).rejects.toThrow(actualSha512)
-    } finally {
+    }
+    finally {
       await server.close()
     }
 
     // the corrupted download must not survive anywhere in the cache:
     // neither in @electron/get's download cache nor in the archive cache
-    const leftovers = (await fs.readdir(freshCache, { recursive: true })).filter(p => p.toString().endsWith(fileName))
+    const leftovers = (await fs.readdir(freshCache, {recursive: true})).filter(p => p.toString().endsWith(fileName))
     expect(leftovers).toEqual([])
   })
 
-  test("unrecognized checksum format fails fast without downloading", async ({ expect }) => {
+  test("unrecognized checksum format fails fast without downloading", async ({expect}) => {
     const spy = vi.spyOn(get, "downloadArtifact").mockImplementation(() => {
       throw new Error("downloadArtifact must not be called for an invalid checksum config")
     })
 
     await expect(
-      downloadBuilderToolset({ releaseName: "bad-format@0.1", filenameWithExt: "artifact.tar.gz", checksums: { "artifact.tar.gz": "clearly-not-a-checksum" } })
+      downloadBuilderToolset({releaseName: "bad-format@0.1", filenameWithExt: "artifact.tar.gz", checksums: {"artifact.tar.gz": "clearly-not-a-checksum"}})
     ).rejects.toThrow(/Unrecognized checksum format/)
     expect(spy).not.toHaveBeenCalled()
   })
 
-  test("mixed checksum formats fail fast without downloading", async ({ expect }) => {
+  test("mixed checksum formats fail fast without downloading", async ({expect}) => {
     const spy = vi.spyOn(get, "downloadArtifact").mockImplementation(() => {
       throw new Error("downloadArtifact must not be called for an invalid checksum config")
     })
@@ -667,29 +662,29 @@ describe("downloadBuilderToolset checksum formats (#10040)", () => {
     expect(spy).not.toHaveBeenCalled()
   })
 
-  test("archive cache hit verifies with a base64 sha512 checksum (no download)", async ({ expect }) => {
+  test("archive cache hit verifies with a base64 sha512 checksum (no download)", async ({expect}) => {
     const releaseName = "sha512-cache@0.1"
     const fileName = "sha512-cached.tar.gz"
     const archiveCachePath = path.join(freshCache, releaseName, fileName)
-    await fs.mkdir(path.dirname(archiveCachePath), { recursive: true })
-    await createMinimalTarGz(archiveCachePath, { sentinel: "cached-sha512" })
+    await fs.mkdir(path.dirname(archiveCachePath), {recursive: true})
+    await createMinimalTarGz(archiveCachePath, {sentinel: "cached-sha512"})
     const sha512 = digestOf(await fs.readFile(archiveCachePath), "sha512", "base64")
 
     const spy = vi.spyOn(get, "downloadArtifact").mockImplementation(() => {
       throw new Error("downloadArtifact must not be called — archive is already cached")
     })
 
-    const result = await downloadBuilderToolset({ releaseName, filenameWithExt: fileName, checksums: { [fileName]: sha512 } })
+    const result = await downloadBuilderToolset({releaseName, filenameWithExt: fileName, checksums: {[fileName]: sha512}})
     expect(spy).not.toHaveBeenCalled()
     const entries = await fs.readdir(result)
     expect(entries).toContain("sentinel")
   })
 
-  test("archive cache entry failing its base64 sha512 checksum is discarded and re-downloaded", async ({ expect }) => {
+  test("archive cache entry failing its base64 sha512 checksum is discarded and re-downloaded", async ({expect}) => {
     const releaseName = "sha512-stale-cache@0.1"
     const fileName = "sha512-stale.tar.gz"
     const archiveCachePath = path.join(freshCache, releaseName, fileName)
-    await fs.mkdir(path.dirname(archiveCachePath), { recursive: true })
+    await fs.mkdir(path.dirname(archiveCachePath), {recursive: true})
     await fs.writeFile(archiveCachePath, "corrupt data")
 
     let downloadArtifactCalled = false
@@ -699,7 +694,7 @@ describe("downloadBuilderToolset checksum formats (#10040)", () => {
     })
 
     const sha512 = digestOf("the pristine artifact bytes", "sha512", "base64")
-    await expect(downloadBuilderToolset({ releaseName, filenameWithExt: fileName, checksums: { [fileName]: sha512 } })).rejects.toThrow("expected-download-attempt")
+    await expect(downloadBuilderToolset({releaseName, filenameWithExt: fileName, checksums: {[fileName]: sha512}})).rejects.toThrow("expected-download-attempt")
     expect(downloadArtifactCalled).toBe(true)
     // the stale cached archive was removed before the re-download attempt
     await expect(fs.access(archiveCachePath)).rejects.toThrow()
@@ -726,11 +721,11 @@ describe("seeded SHASUMS256 checksums", () => {
 
   afterEach(async () => {
     vi.unstubAllEnvs()
-    await Promise.all(tempDirs.splice(0).map(dir => fs.rm(dir, { recursive: true, force: true })))
+    await Promise.all(tempDirs.splice(0).map(dir => fs.rm(dir, {recursive: true, force: true})))
   })
 
   describe("parseChecksumFile", () => {
-    test("parses binary-mode lines (<hash> *<filename>)", ({ expect }) => {
+    test("parses binary-mode lines (<hash> *<filename>)", ({expect}) => {
       const parsed = parseChecksumFile(`${ZIP_HASH} *${ZIP_NAME}\n${OTHER_HASH} *electron-v${VERSION}-linux-arm64.zip\n`)
       expect(parsed).toEqual({
         [ZIP_NAME]: ZIP_HASH,
@@ -738,23 +733,23 @@ describe("seeded SHASUMS256 checksums", () => {
       })
     })
 
-    test("parses text-mode lines (<hash>  <filename>)", ({ expect }) => {
+    test("parses text-mode lines (<hash>  <filename>)", ({expect}) => {
       const parsed = parseChecksumFile(`${ZIP_HASH}  ${ZIP_NAME}`)
-      expect(parsed).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      expect(parsed).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
 
-    test("handles CRLF line endings", ({ expect }) => {
+    test("handles CRLF line endings", ({expect}) => {
       const parsed = parseChecksumFile(`${ZIP_HASH} *${ZIP_NAME}\r\n${OTHER_HASH} *other.zip\r\n`)
       expect(parsed[ZIP_NAME]).toBe(ZIP_HASH)
       expect(parsed["other.zip"]).toBe(OTHER_HASH)
     })
 
-    test("normalises uppercase hashes to lowercase", ({ expect }) => {
+    test("normalises uppercase hashes to lowercase", ({expect}) => {
       const parsed = parseChecksumFile(`${ZIP_HASH.toUpperCase()} *${ZIP_NAME}`)
       expect(parsed[ZIP_NAME]).toBe(ZIP_HASH)
     })
 
-    test("skips malformed lines", ({ expect }) => {
+    test("skips malformed lines", ({expect}) => {
       const content = [
         "not a checksum line",
         "deadbeef *too-short-hash.zip",
@@ -763,51 +758,51 @@ describe("seeded SHASUMS256 checksums", () => {
         `${ZIP_HASH} *${ZIP_NAME}`,
         `zz${ZIP_HASH.slice(2)} *non-hex.zip`,
       ].join("\n")
-      expect(parseChecksumFile(content)).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      expect(parseChecksumFile(content)).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
 
-    test("returns empty record for unusable content", ({ expect }) => {
+    test("returns empty record for unusable content", ({expect}) => {
       expect(parseChecksumFile("complete garbage\nanother bad line\n")).toEqual({})
     })
   })
 
   describe("resolveSeededChecksums", () => {
-    test("returns null when no SHASUMS file is seeded", async ({ expect }) => {
+    test("returns null when no SHASUMS file is seeded", async ({expect}) => {
       const cacheRoot = await createTempDir()
       expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toBeNull()
     })
 
-    test("picks up SHASUMS256.txt-<version> at the cache root (flatpak-node-generator layout)", async ({ expect }) => {
+    test("picks up SHASUMS256.txt-<version> at the cache root (flatpak-node-generator layout)", async ({expect}) => {
       const cacheRoot = await createTempDir()
       await fs.writeFile(path.join(cacheRoot, `SHASUMS256.txt-${VERSION}`), `${ZIP_HASH} *${ZIP_NAME}\n`)
-      expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
 
-    test("falls back to plain SHASUMS256.txt at the cache root", async ({ expect }) => {
+    test("falls back to plain SHASUMS256.txt at the cache root", async ({expect}) => {
       const cacheRoot = await createTempDir()
       await fs.writeFile(path.join(cacheRoot, "SHASUMS256.txt"), `${ZIP_HASH} *${ZIP_NAME}\n`)
-      expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
 
-    test("versioned file wins over the plain file", async ({ expect }) => {
+    test("versioned file wins over the plain file", async ({expect}) => {
       const cacheRoot = await createTempDir()
       await fs.writeFile(path.join(cacheRoot, `SHASUMS256.txt-${VERSION}`), `${ZIP_HASH} *${ZIP_NAME}\n`)
       await fs.writeFile(path.join(cacheRoot, "SHASUMS256.txt"), `${OTHER_HASH} *${ZIP_NAME}\n`)
-      expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
 
-    test("ignores a seeded file that has no entry for the requested artifact", async ({ expect }) => {
+    test("ignores a seeded file that has no entry for the requested artifact", async ({expect}) => {
       const cacheRoot = await createTempDir()
       // e.g. a stale SHASUMS for a different Electron version — must not poison the config
       await fs.writeFile(path.join(cacheRoot, `SHASUMS256.txt-${VERSION}`), `${OTHER_HASH} *electron-v34.0.0-linux-x64.zip\n`)
       expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toBeNull()
     })
 
-    test("falls through to the plain file when the versioned file is unusable", async ({ expect }) => {
+    test("falls through to the plain file when the versioned file is unusable", async ({expect}) => {
       const cacheRoot = await createTempDir()
       await fs.writeFile(path.join(cacheRoot, `SHASUMS256.txt-${VERSION}`), "malformed content\n")
       await fs.writeFile(path.join(cacheRoot, "SHASUMS256.txt"), `${ZIP_HASH} *${ZIP_NAME}\n`)
-      expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      expect(await resolveSeededChecksums(cacheRoot, VERSION, ZIP_NAME)).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
   })
 
@@ -819,53 +814,53 @@ describe("seeded SHASUMS256 checksums", () => {
       version: VERSION,
     }
 
-    test("injects seeded checksums when SHASUMS256.txt-<version> exists in the cache root", async ({ expect }) => {
+    test("injects seeded checksums when SHASUMS256.txt-<version> exists in the cache root", async ({expect}) => {
       const cacheDir = await createTempDir()
       await fs.writeFile(path.join(cacheDir, `SHASUMS256.txt-${VERSION}`), `${ZIP_HASH} *${ZIP_NAME}\n`)
-      const config = await buildElectronArtifactConfig({ ...baseOptions, cacheDir })
-      expect(config.checksums).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      const config = await buildElectronArtifactConfig({...baseOptions, cacheDir})
+      expect(config.checksums).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
 
-    test("leaves checksums undefined when nothing is seeded", async ({ expect }) => {
+    test("leaves checksums undefined when nothing is seeded", async ({expect}) => {
       const cacheDir = await createTempDir()
-      const config = await buildElectronArtifactConfig({ ...baseOptions, cacheDir })
+      const config = await buildElectronArtifactConfig({...baseOptions, cacheDir})
       expect(config.checksums).toBeUndefined()
     })
 
-    test("resolves the seeded file from the legacy electronDownload.cache option", async ({ expect }) => {
+    test("resolves the seeded file from the legacy electronDownload.cache option", async ({expect}) => {
       // the exact config shape from #10039: electronDownload: { cache: <flatpak electron cache> }
       const cache = await createTempDir()
       await fs.writeFile(path.join(cache, `SHASUMS256.txt-${VERSION}`), `${ZIP_HASH} *${ZIP_NAME}\n`)
-      const config = await buildElectronArtifactConfig({ ...baseOptions, electronDownload: { cache } satisfies ElectronDownloadOptions })
-      expect(config.checksums).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      const config = await buildElectronArtifactConfig({...baseOptions, electronDownload: {cache} satisfies ElectronDownloadOptions})
+      expect(config.checksums).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
 
-    test("user-provided checksums win over the seeded file", async ({ expect }) => {
+    test("user-provided checksums win over the seeded file", async ({expect}) => {
       const cacheDir = await createTempDir()
       await fs.writeFile(path.join(cacheDir, `SHASUMS256.txt-${VERSION}`), `${ZIP_HASH} *${ZIP_NAME}\n`)
-      const userChecksums = { [ZIP_NAME]: OTHER_HASH }
-      const config = await buildElectronArtifactConfig({ ...baseOptions, cacheDir, electronDownload: { checksums: userChecksums } })
+      const userChecksums = {[ZIP_NAME]: OTHER_HASH}
+      const config = await buildElectronArtifactConfig({...baseOptions, cacheDir, electronDownload: {checksums: userChecksums}})
       expect(config.checksums).toEqual(userChecksums)
     })
 
-    test("electronDownload.checksums alone is recognised as ElectronGetOptions and forwarded", async ({ expect }) => {
+    test("electronDownload.checksums alone is recognised as ElectronGetOptions and forwarded", async ({expect}) => {
       // Regression guard for the shape discriminator: before "checksums" was added to
       // ELECTRON_GET_EXCLUSIVE_KEYS, a bare { checksums } config was misrouted into the legacy
       // branch and silently dropped.
-      const userChecksums = { [ZIP_NAME]: ZIP_HASH }
-      const config = await buildElectronArtifactConfig({ ...baseOptions, electronDownload: { checksums: userChecksums } })
+      const userChecksums = {[ZIP_NAME]: ZIP_HASH}
+      const config = await buildElectronArtifactConfig({...baseOptions, electronDownload: {checksums: userChecksums}})
       expect(config.checksums).toEqual(userChecksums)
     })
 
-    test("does not look up seeded checksums when isVerifyChecksum is false", async ({ expect }) => {
+    test("does not look up seeded checksums when isVerifyChecksum is false", async ({expect}) => {
       const cacheDir = await createTempDir()
       await fs.writeFile(path.join(cacheDir, `SHASUMS256.txt-${VERSION}`), `${ZIP_HASH} *${ZIP_NAME}\n`)
-      const config = await buildElectronArtifactConfig({ ...baseOptions, cacheDir, electronDownload: { isVerifyChecksum: false } satisfies ElectronDownloadOptions })
+      const config = await buildElectronArtifactConfig({...baseOptions, cacheDir, electronDownload: {isVerifyChecksum: false} satisfies ElectronDownloadOptions})
       expect(config.checksums).toBeUndefined()
       expect(config.unsafelyDisableChecksums).toBe(true)
     })
 
-    test("without cacheDir, the seeded file is resolved from @electron/get's default cache root", async ({ expect, skip }) => {
+    test("without cacheDir, the seeded file is resolved from @electron/get's default cache root", async ({expect, skip}) => {
       if (process.platform !== "linux") {
         skip() // default root layout is asserted per-platform in the defaultElectronGetCacheRoot test
         return
@@ -873,21 +868,23 @@ describe("seeded SHASUMS256 checksums", () => {
       const xdgCache = await createTempDir()
       vi.stubEnv("XDG_CACHE_HOME", xdgCache)
       const electronCacheRoot = path.join(xdgCache, "electron")
-      await fs.mkdir(electronCacheRoot, { recursive: true })
+      await fs.mkdir(electronCacheRoot, {recursive: true})
       await fs.writeFile(path.join(electronCacheRoot, `SHASUMS256.txt-${VERSION}`), `${ZIP_HASH} *${ZIP_NAME}\n`)
       const config = await buildElectronArtifactConfig(baseOptions)
-      expect(config.checksums).toEqual({ [ZIP_NAME]: ZIP_HASH })
+      expect(config.checksums).toEqual({[ZIP_NAME]: ZIP_HASH})
     })
   })
 
   describe("defaultElectronGetCacheRoot", () => {
-    test("matches @electron/get's documented per-platform default", ({ expect }) => {
+    test("matches @electron/get's documented per-platform default", ({expect}) => {
       const result = defaultElectronGetCacheRoot()
       if (process.platform === "darwin") {
         expect(result).toBe(path.join(os.homedir(), "Library", "Caches", "electron"))
-      } else if (process.platform === "win32") {
+      }
+      else if (process.platform === "win32") {
         expect(result.toLowerCase()).toContain(path.join("electron", "Cache").toLowerCase())
-      } else {
+      }
+      else {
         expect(path.basename(result)).toBe("electron")
         expect(result).toBe(path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "electron"))
       }
@@ -908,8 +905,8 @@ const ffmpegLibName = electronPlatform === "darwin" ? "libffmpeg.dylib" : electr
 // must not run concurrently. @electron/get's putFileInCache has no internal locking; concurrent moves
 // to the same cache path produce "dest already exists." from fs-extra. Sequential order ensures the
 // first test populates the cache, and subsequent tests get a cache hit.
-describe("downloadElectronArtifact", { sequential: true }, () => {
-  test("downloads and extracts electron ffmpeg zip for current platform", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+describe("downloadElectronArtifact", {sequential: true}, () => {
+  test("downloads and extracts electron ffmpeg zip for current platform", DOWNLOAD_TIMEOUT, async ({expect}) => {
     const options: ArtifactDownloadOptions = {
       artifactName: "ffmpeg",
       platformName: electronPlatform,
@@ -931,7 +928,7 @@ describe("downloadElectronArtifact", { sequential: true }, () => {
     expect(libStat.size).toBeGreaterThan(0)
   })
 
-  test("downloadElectronArtifact: deduplicates concurrent calls for the same artifact", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadElectronArtifact: deduplicates concurrent calls for the same artifact", DOWNLOAD_TIMEOUT, async ({expect}) => {
     const options: ArtifactDownloadOptions = {
       artifactName: "ffmpeg",
       platformName: electronPlatform,
@@ -946,7 +943,7 @@ describe("downloadElectronArtifact", { sequential: true }, () => {
     expect(b).toBe(c)
   })
 
-  test("downloadElectronArtifact: applies legacy ElectronDownloadOptions mirror settings", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadElectronArtifact: applies legacy ElectronDownloadOptions mirror settings", DOWNLOAD_TIMEOUT, async ({expect}) => {
     const legacyOptions: ElectronDownloadOptions = {
       mirror: "https://github.com/electron/electron/releases/download/",
     }
@@ -966,13 +963,13 @@ describe("downloadElectronArtifact", { sequential: true }, () => {
     expect(stat.isDirectory()).toBe(true)
   })
 
-  test("downloadElectronArtifact: isVerifyChecksum:false skips checksum validation", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadElectronArtifact: isVerifyChecksum:false skips checksum validation", DOWNLOAD_TIMEOUT, async ({expect}) => {
     const options: ArtifactDownloadOptions = {
       artifactName: "ffmpeg",
       platformName: electronPlatform,
       arch: electronArch,
       version: ELECTRON_VERSION,
-      electronDownload: { isVerifyChecksum: false } satisfies ElectronDownloadOptions,
+      electronDownload: {isVerifyChecksum: false} satisfies ElectronDownloadOptions,
     }
 
     const result = await downloadElectronArtifact(options)
@@ -983,7 +980,7 @@ describe("downloadElectronArtifact", { sequential: true }, () => {
   // Addresses #9205: electronDownload.customDir was not being mapped to mirrorOptions.customDir
   // in the @electron/get call. Setting it to the canonical "v${version}" directory verifies
   // the mapping is honoured without needing a custom server.
-  test("downloadElectronArtifact: maps electronDownload.customDir to mirrorOptions.customDir", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadElectronArtifact: maps electronDownload.customDir to mirrorOptions.customDir", DOWNLOAD_TIMEOUT, async ({expect}) => {
     const options: ArtifactDownloadOptions = {
       artifactName: "ffmpeg",
       platformName: electronPlatform,
@@ -1008,7 +1005,7 @@ describe("downloadElectronArtifact", { sequential: true }, () => {
   // Uses unsafelyDisableChecksums (another ELECTRON_GET_EXCLUSIVE_KEY) rather than mirrorOptions
   // so that the effective download URL and @electron/get cache key are identical to the baseline
   // download — avoiding a redundant network request in CI environments with a pre-warmed cache.
-  test("downloadElectronArtifact: routes ElectronGetOptions through the isElectronGetOptions discriminator", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadElectronArtifact: routes ElectronGetOptions through the isElectronGetOptions discriminator", DOWNLOAD_TIMEOUT, async ({expect}) => {
     const options: ArtifactDownloadOptions = {
       artifactName: "ffmpeg",
       platformName: electronPlatform,
@@ -1027,7 +1024,7 @@ describe("downloadElectronArtifact", { sequential: true }, () => {
 
   // Addresses #8687: building for arm64 on an x64 host (or vice-versa) failed because
   // electron.exe was not found after extraction. Verifies cross-arch downloads succeed.
-  test("downloadElectronArtifact: downloads ffmpeg for non-host arch (cross-arch build)", DOWNLOAD_TIMEOUT, async ({ expect }) => {
+  test("downloadElectronArtifact: downloads ffmpeg for non-host arch (cross-arch build)", DOWNLOAD_TIMEOUT, async ({expect}) => {
     if (electronPlatform === "win32") {
       // arm64 ffmpeg is not published separately for win32 in the same zip layout
       expect(true).toBe(true)
@@ -1049,7 +1046,7 @@ describe("downloadElectronArtifact", { sequential: true }, () => {
 
   // ─── downloadElectronArtifact: electron distribution zip (heavy) ──────────────
 
-  test.heavy("downloadElectronArtifact: downloads and extracts full electron distribution zip", { timeout: 300_000 }, async ({ expect }) => {
+  test.heavy("downloadElectronArtifact: downloads and extracts full electron distribution zip", {timeout: 300_000}, async ({expect}) => {
     const options: ArtifactDownloadOptions = {
       artifactName: "electron",
       platformName: electronPlatform,
@@ -1068,55 +1065,5 @@ describe("downloadElectronArtifact", { sequential: true }, () => {
 
     // electron distribution always ships a version file
     expect(entries).toContain("version")
-  })
-})
-
-// ─── Proxy integration ────────────────────────────────────────────────────────
-
-async function startRecordingProxy() {
-  const connectTargets: string[] = []
-  const server = http.createServer()
-  server.on("connect", (req, socket) => {
-    connectTargets.push(req.url ?? "")
-    socket.write("HTTP/1.1 503 Proxy Refused\r\n\r\n")
-    socket.destroy()
-  })
-  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve))
-  const { port } = server.address() as net.AddressInfo
-  const close = () => new Promise<void>(resolve => server.close(() => resolve()))
-  return { port, connectTargets, close }
-}
-
-describe("proxy integration", () => {
-  test("routes download requests through HTTPS_PROXY when set", { timeout: 15_000 }, async ({ expect }) => {
-    const proxy = await startRecordingProxy()
-    const freshCache = await fs.mkdtemp(path.join(os.tmpdir(), "eb-proxy-integration-"))
-    vi.stubEnv("HTTPS_PROXY", `http://127.0.0.1:${proxy.port}`)
-    vi.stubEnv("ELECTRON_BUILDER_CACHE", freshCache)
-
-    try {
-      await expect(
-        downloadBuilderToolset({
-          releaseName: APPIMAGE_RELEASE,
-          filenameWithExt: APPIMAGE_FILE,
-          checksums: { [APPIMAGE_FILE]: APPIMAGE_SHA256 },
-        })
-      ).rejects.toThrow() // proxy refuses tunnel — download fails, that's expected
-    } finally {
-      vi.unstubAllEnvs()
-      await proxy.close()
-      await fs.rm(freshCache, { recursive: true, force: true })
-    }
-
-    // Core assertion: got sent CONNECT to our proxy, proving the agent is wired through
-    expect(
-      proxy.connectTargets.some(t => {
-        try {
-          return new URL(`http://${t}`).hostname.toLowerCase() === "github.com"
-        } catch {
-          return false
-        }
-      })
-    ).toBe(true)
   })
 })

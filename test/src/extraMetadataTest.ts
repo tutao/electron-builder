@@ -3,9 +3,9 @@ import { Platform } from "electron-builder"
 import { coerceTypes } from "electron-builder/out/builder"
 import { readJson } from "fs-extra"
 import * as path from "path"
+import { ExpectStatic } from "vitest"
 import { assertThat } from "./helpers/fileAssert"
 import { app, linuxDirTarget, modifyPackageJson } from "./helpers/packTester"
-import { ExpectStatic } from "vitest"
 
 function createExtraMetadataTest(expect: ExpectStatic, asar: boolean) {
   return app(
@@ -43,7 +43,8 @@ function createExtraMetadataTest(expect: ExpectStatic, asar: boolean) {
         await assertThat(expect, path.join(context.getContent(Platform.LINUX), "new-name")).isFile()
         if (asar) {
           expect(await readAsarJson(path.join(context.getResources(Platform.LINUX), "app.asar"), "package.json")).toMatchSnapshot()
-        } else {
+        }
+        else {
           expect(await readJson(path.join(context.getResources(Platform.LINUX), "app", "package.json"))).toMatchSnapshot()
         }
       },
@@ -51,29 +52,5 @@ function createExtraMetadataTest(expect: ExpectStatic, asar: boolean) {
   )
 }
 
-test("extra metadata", ({ expect }) => createExtraMetadataTest(expect, true))
-test("extra metadata (no asar)", ({ expect }) => createExtraMetadataTest(expect, false))
-
-test("cli", ({ expect }) => {
-  // because these methods are internal
-  const { configureBuildCommand, normalizeOptions } = require("electron-builder/out/builder")
-  const yargs = require("yargs")
-    .strict()
-    .fail((message: string, error: Error | null) => {
-      throw error || new Error(message)
-    })
-  configureBuildCommand(yargs)
-
-  function parse(input: string): any {
-    return normalizeOptions(yargs.parse(input.split(" ")))
-  }
-
-  function parseExtraMetadata(input: string) {
-    const result = parse(input)
-    delete result.targets
-    return result
-  }
-
-  expect(parseExtraMetadata("--c.extraMetadata.foo=bar")).toMatchSnapshot()
-  expect(parseExtraMetadata("--c.extraMetadata.dev.login-url")).toMatchSnapshot()
-})
+test("extra metadata", ({expect}) => createExtraMetadataTest(expect, true))
+test("extra metadata (no asar)", ({expect}) => createExtraMetadataTest(expect, false))

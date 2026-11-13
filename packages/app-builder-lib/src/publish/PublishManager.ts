@@ -56,7 +56,8 @@ export class PublishManager implements PublishContext {
         if (!event.targets.some(it => it.name === "dmg" || it.name === "zip")) {
           return
         }
-      } else if (packager.platform === Platform.WINDOWS) {
+      }
+      else if (packager.platform === Platform.WINDOWS) {
         if (!event.targets.some(it => isSuitableWindowsTarget(it))) {
           return
         }
@@ -72,7 +73,8 @@ export class PublishManager implements PublishContext {
       const publishConfiguration = event.publishConfig
       if (publishConfiguration == null) {
         this.taskManager.addTask(this.artifactCreatedWithoutExplicitPublishConfig(event))
-      } else if (this.isPublish) {
+      }
+      else if (this.isPublish) {
         if (debug.enabled) {
           debug(`artifactCreated (isPublish: ${this.isPublish}): ${safeStringifyJson(event, new Set(["packager"]))},\n  publishConfig: ${safeStringifyJson(publishConfiguration)}`)
         }
@@ -127,7 +129,7 @@ export class PublishManager implements PublishContext {
     const eventFile = event.file
     if (publishConfigs == null) {
       if (this.isPublish) {
-        log.debug({ file: eventFile, reason: "no publish configs" }, "not published")
+        log.debug({file: eventFile, reason: "no publish configs"}, "not published")
       }
       return
     }
@@ -135,7 +137,7 @@ export class PublishManager implements PublishContext {
     if (this.isPublish) {
       for (const publishConfig of publishConfigs) {
         if (this.cancellationToken.cancelled) {
-          log.debug({ file: event.file, reason: "cancelled" }, "not published")
+          log.debug({file: event.file, reason: "cancelled"}, "not published")
           break
         }
 
@@ -161,7 +163,7 @@ export class PublishManager implements PublishContext {
     if (publisher == null) {
       publisher = await createPublisher(this, appInfo.version, publishConfig, this.publishOptions, this.packager)
       this.nameToPublisher.set(providerCacheKey, publisher)
-      log.info({ publisher: publisher!.toString() }, "publishing")
+      log.info({publisher: publisher!.toString()}, "publishing")
     }
     return publisher
   }
@@ -221,13 +223,9 @@ export async function getPublishConfigsForUpdateInfo(
   }
 
   if (publishConfigs.length === 0) {
-    log.debug(null, "getPublishConfigsForUpdateInfo: no publishConfigs, detect using repository info")
-    // https://github.com/electron-userland/electron-builder/issues/925#issuecomment-261732378
-    // default publish config is github, file should be generated regardless of publish state (user can test installer locally or manage the release process manually)
-    const repositoryInfo = await packager.info.repositoryInfo
-    debug(`getPublishConfigsForUpdateInfo: ${safeStringifyJson(repositoryInfo)}`)
+    log.debug(null, "getPublishConfigsForUpdateInfo: no publishConfigs")
   }
-  return publishConfigs
+  return Promise.resolve(publishConfigs)
 }
 
 export async function createPublisher(
@@ -268,7 +266,7 @@ async function requireProviderClass(provider: string, packager: Packager): Promi
           return module.default || module
         }
       }
-      log.error({ path: log.filePath(packager.buildResourcesDir), template, extensionsChecked: extensions }, "unable to find publish provider in build resources")
+      log.error({path: log.filePath(packager.buildResourcesDir), template, extensionsChecked: extensions}, "unable to find publish provider in build resources")
       throw new InvalidConfigurationError(`Cannot find module for publisher "${provider}" with any extension: ${extensions.join(", ")}`)
     }
   }
@@ -282,7 +280,7 @@ export function computeDownloadUrl(publishConfiguration: PublishConfiguration, f
     }
 
     const baseUrl = parseUrl(baseUrlString)
-    return url.format({ ...baseUrl, pathname: path.posix.resolve(baseUrl?.pathname || "/", encodeURI(fileName)) })
+    return url.format({...baseUrl, pathname: path.posix.resolve(baseUrl?.pathname || "/", encodeURI(fileName))})
   }
   throw new Error(`Unsupported provider ${publishConfiguration.provider}`)
 }
@@ -334,7 +332,7 @@ async function resolvePublishConfigurations(
 
   debug(`Explicit publish provider: ${safeStringifyJson(publishers)}`)
   return (await Promise.all(
-    asArray(publishers).map(it => getResolvedPublishConfig(platformPackager, packager, typeof it === "string" ? { provider: it } : it, arch, errorIfCannot))
+    asArray(publishers).map(it => getResolvedPublishConfig(platformPackager, packager, typeof it === "string" ? {provider: it} : it, arch, errorIfCannot))
   )) as PublishConfiguration[]
 }
 
@@ -367,7 +365,7 @@ async function getResolvedPublishConfig(
   arch: Arch | null,
   errorIfCannot: boolean
 ): Promise<PublishConfiguration | null> {
-  options = { ...options }
+  options = {...options}
   expandPublishConfig(options, platformPackager, packager, arch)
 
   let channelFromAppVersion: string | null = null

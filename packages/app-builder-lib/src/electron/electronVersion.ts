@@ -1,5 +1,4 @@
 import { httpExecutor, InvalidConfigurationError, log } from "builder-util"
-import { parseXml } from "builder-util-runtime"
 import { readJson } from "fs-extra"
 import { Lazy } from "lazy-val"
 import * as path from "path"
@@ -27,9 +26,10 @@ export async function getElectronVersionFromInstalled(projectDir: string): Promi
   for (const name of electronPackages) {
     try {
       return (await readJson(path.join(projectDir, "node_modules", name, "package.json"))).version
-    } catch (e: any) {
+    }
+    catch (e: any) {
       if (e.code !== "ENOENT") {
-        log.warn({ name, error: e }, `cannot read electron version package.json`)
+        log.warn({name, error: e}, `cannot read electron version package.json`)
       }
     }
   }
@@ -40,9 +40,10 @@ export async function getElectronPackage(projectDir: string) {
   for (const name of electronPackages) {
     try {
       return await readJson(path.join(projectDir, "node_modules", name, "package.json"))
-    } catch (e: any) {
+    }
+    catch (e: any) {
       if (e.code !== "ENOENT") {
-        log.warn({ name, error: e }, `cannot find electron in package.json`)
+        log.warn({name, error: e}, `cannot find electron in package.json`)
       }
     }
   }
@@ -65,21 +66,8 @@ export async function computeElectronVersion(projectDir: string): Promise<string
       break
     }
   }
-  if (dependency?.name === "electron-nightly") {
-    log.info("You are using a nightly version of electron, be warned that those builds are highly unstable.")
-    const feedXml = await httpExecutor.request({
-      hostname: "github.com",
-      path: `/electron/nightlies/releases.atom`,
-      headers: {
-        accept: "application/xml, application/atom+xml, text/xml, */*",
-      },
-    })
-    const feed = parseXml(feedXml!)
-    const latestRelease = feed.element("entry", false, `No published versions on GitHub`)
-    const v = /\/tag\/v?([^/]+)$/.exec(latestRelease.element("link").attribute("href"))![1]
-    return v.startsWith("v") ? v.substring(1) : v
-  } else if (dependency?.version === "latest") {
-    log.warn('Electron version is set to "latest", but it is recommended to set it to some more restricted version range.')
+  if (dependency?.version === "latest") {
+    log.warn("Electron version is set to \"latest\", but it is recommended to set it to some more restricted version range.")
     try {
       const releaseInfo = JSON.parse(
         (await httpExecutor.request({
@@ -91,9 +79,10 @@ export async function computeElectronVersion(projectDir: string): Promise<string
         }))!
       )
       const version = releaseInfo.tag_name.startsWith("v") ? releaseInfo.tag_name.substring(1) : releaseInfo.tag_name
-      log.info({ version }, `resolve ${dependency.name}@${dependency.version}`)
+      log.info({version}, `resolve ${dependency.name}@${dependency.version}`)
       return version
-    } catch (e: any) {
+    }
+    catch (e: any) {
       log.warn(e)
     }
 
@@ -109,9 +98,9 @@ export async function computeElectronVersion(projectDir: string): Promise<string
   const pinnedVersion = semver.valid(version)
   if (pinnedVersion === null) {
     log.error(
-      { version },
+      {version},
       `Electron version "${version}" is a range, not a fixed version. electron-builder requires an exact version because it downloads platform-specific binaries for a specific release — a range cannot be resolved without electron installed in node_modules. ` +
-        `Pin the version in package.json (e.g. "15.3.0" instead of "^15.3.0") or set "electronVersion" explicitly in your electron-builder config.`
+      `Pin the version in package.json (e.g. "15.3.0" instead of "^15.3.0") or set "electronVersion" explicitly in your electron-builder config.`
     )
     throw new InvalidConfigurationError(
       `Cannot compute electron version from installed node modules - version ("${version}") is not fixed in project.\nSee https://github.com/electron-userland/electron-builder/issues/3984#issuecomment-504968246`
@@ -135,7 +124,7 @@ function findFromPackageMetadata(packageData: any): NameAndVersion | null {
       dep = dependencies == null ? null : dependencies[name]
     }
     if (dep != null) {
-      return { name, version: dep }
+      return {name, version: dep}
     }
   }
   return null

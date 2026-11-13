@@ -55,16 +55,10 @@
     "builder-util": "26.18.1",
     "builder-util-runtime": "9.7.1",
     "chalk": "^4.1.2",
-    "ci-info": "^4.2.0",
-    "dmg-builder": "26.18.1",
-    "fs-extra": "^10.1.0",
-    "lazy-val": "^1.0.5",
-    "simple-update-notifier": "2.0.0",
-    "yargs": "^17.6.2"
+    "dmg-builder": "26.18.1"
   },
   "devDependencies": {
-    "@types/fs-extra": "9.0.13",
-    "@types/yargs": "^17.0.16"
+    "@types/fs-extra": "9.0.13"
   },
   "typings": "./out/index.d.ts",
   "publishConfig": {

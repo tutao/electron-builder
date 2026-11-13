@@ -66,9 +66,9 @@ export function createHttpError(response: IncomingMessage, description: any | nu
   return new HttpError(
     response.statusCode || -1,
     `${response.statusCode} ${response.statusMessage}` +
-      (description == null ? "" : "\n" + JSON.stringify(description, null, "  ")) +
-      "\nHeaders: " +
-      safeStringifyJson(response.headers),
+    (description == null ? "" : "\n" + JSON.stringify(description, null, "  ")) +
+    "\nHeaders: " +
+    safeStringifyJson(response.headers),
     description
   )
 }
@@ -114,6 +114,7 @@ interface Request {
   abort: () => void
   end: (data?: Buffer) => void
 }
+
 export abstract class HttpExecutor<T extends Request> {
   protected readonly maxRedirects = 10
 
@@ -125,7 +126,7 @@ export abstract class HttpExecutor<T extends Request> {
       if (debug.enabled) {
         debug(safeStringifyJson(data))
       }
-      const { headers, ...opts } = options
+      const {headers, ...opts} = options
       options = {
         method: "post",
         headers: {
@@ -146,7 +147,7 @@ export abstract class HttpExecutor<T extends Request> {
     redirectCount = 0
   ): Promise<string> {
     if (debug.enabled) {
-      const { headers: _headers, auth: _auth, ...safeOptions } = options as any
+      const {headers: _headers, auth: _auth, ...safeOptions} = options as any
       debug(`Request: ${safeStringifyJson(safeOptions)}`)
     }
 
@@ -154,7 +155,8 @@ export abstract class HttpExecutor<T extends Request> {
       const request = this.createRequest(options, (response: any) => {
         try {
           this.handleResponse(response, options, cancellationToken, resolve, reject, redirectCount, requestProcessor)
-        } catch (e: any) {
+        }
+        catch (e: any) {
           reject(e)
         }
       })
@@ -193,7 +195,7 @@ export abstract class HttpExecutor<T extends Request> {
     requestProcessor: (request: T, reject: (error: Error) => void) => void
   ) {
     if (debug.enabled) {
-      const { headers: _headers, auth: _auth, ...safeOptions } = options as any
+      const {headers: _headers, auth: _auth, ...safeOptions} = options as any
       debug(`Response: ${response.statusCode} ${response.statusMessage}, request options: ${safeStringifyJson(safeOptions)}`)
     }
 
@@ -210,7 +212,8 @@ Please double check that your authentication token is correct. Due to security r
         )
       )
       return
-    } else if (response.statusCode === 204) {
+    }
+    else if (response.statusCode === 204) {
       // on DELETE request
       resolve()
       return
@@ -251,10 +254,12 @@ Please double check that your authentication token is correct. Due to security r
           `
             )
           )
-        } else {
+        }
+        else {
           resolve(data.length === 0 ? null : data)
         }
-      } catch (e: any) {
+      }
+      catch (e: any) {
         reject(e)
       }
     })
@@ -282,7 +287,8 @@ Please double check that your authentication token is correct. Due to security r
           callback: error => {
             if (error == null) {
               resolve(Buffer.concat(responseChunks))
-            } else {
+            }
+            else {
               reject(error)
             }
           },
@@ -343,7 +349,8 @@ Please double check that your authentication token is correct. Due to security r
             throw new Error(`Cannot follow the redirect to the "${redirectOptions.protocol ?? ""}" protocol`)
           }
           this.doDownload(redirectOptions, options, redirectCount + 1)
-        } catch (e: unknown) {
+        }
+        catch (e: unknown) {
           options.callback(e instanceof Error ? e : new Error(`Cannot follow the redirect: ${String(e)}`))
         }
         return
@@ -351,7 +358,8 @@ Please double check that your authentication token is correct. Due to security r
 
       if (options.responseHandler == null) {
         configurePipes(options, response)
-      } else {
+      }
+      else {
         options.responseHandler(response, options.callback)
       }
     })
@@ -379,7 +387,7 @@ Please double check that your authentication token is correct. Due to security r
   }
 
   static prepareRedirectUrlOptions(redirectUrl: string, options: RequestOptions): RequestOptions {
-    const newOptions = configureRequestOptionsFromUrl(redirectUrl, { ...options })
+    const newOptions = configureRequestOptionsFromUrl(redirectUrl, {...options})
     // the target is hostname and port: Electron's net prefers `host` (where ElectronHttpExecutor moves a `Host` header) over them
     delete newOptions.host
     const headers = newOptions.headers
@@ -455,7 +463,8 @@ Please double check that your authentication token is correct. Due to security r
     for (let attemptNumber = 0; ; attemptNumber++) {
       try {
         return await task()
-      } catch (e: any) {
+      }
+      catch (e: any) {
         if (attemptNumber < maxRetries && ((e instanceof HttpError && e.isServerError()) || e.code === "EPIPE")) {
           await new Promise(r => setTimeout(r, 1000 * (attemptNumber + 1)))
           continue
@@ -480,7 +489,8 @@ function parseUrl(url: string, options: RequestOptions): URL {
   try {
     // Would throw exception if url is not absolute
     return new URL(url)
-  } catch {
+  }
+  catch {
     // Relative URL - construct base URL from original options
     const hostname = options.hostname
     const protocol = options.protocol || "https:"
@@ -502,7 +512,8 @@ export function configureRequestUrl(url: URL, options: RequestOptions): void {
   options.hostname = url.hostname
   if (url.port) {
     options.port = url.port
-  } else if (options.port) {
+  }
+  else if (options.port) {
     delete options.port
   }
   options.path = url.pathname + url.search
@@ -543,7 +554,8 @@ export class DigestTransform extends Transform {
     if (this.isValidateOnEnd) {
       try {
         this.validate()
-      } catch (e: any) {
+      }
+      catch (e: any) {
         callback(e)
         return
       }
@@ -577,10 +589,12 @@ export function safeGetHeader(response: any, headerKey: string) {
   const value = response.headers[headerKey]
   if (value == null) {
     return null
-  } else if (Array.isArray(value)) {
+  }
+  else if (Array.isArray(value)) {
     // electron API
     return value.length === 0 ? null : value[value.length - 1]
-  } else {
+  }
+  else {
     return value
   }
 }
@@ -601,7 +615,8 @@ function configurePipes(options: DownloadCallOptions, response: IncomingMessage)
   const sha512 = options.options.sha512
   if (sha512 != null) {
     streams.push(new DigestTransform(sha512, "sha512", sha512.length === 128 && !sha512.includes("+") && !sha512.includes("Z") && !sha512.includes("=") ? "hex" : "base64"))
-  } else if (options.options.sha2 != null) {
+  }
+  else if (options.options.sha2 != null) {
     streams.push(new DigestTransform(options.options.sha2, "sha256", "hex"))
   }
 
@@ -629,13 +644,13 @@ export function configureRequestOptions(options: RequestOptions, token?: string 
     options.method = method
   }
 
-  options.headers = { ...options.headers }
+  options.headers = {...options.headers}
   const headers = options.headers
 
   if (token != null) {
     ;(headers as any).authorization = token.startsWith("Basic") || token.startsWith("Bearer") ? token : `token ${token}`
   }
-  console.log(headers)
+
   if (headers["User-Agent"] == null) {
     headers["User-Agent"] = "electron-builder"
   }
@@ -673,9 +688,10 @@ export function hashSensitiveValue(value: string): string {
     if (fingerprintKey == null) {
       fingerprintKey = randomBytes(32)
     }
-    const fingerprint = scryptSync(String(value), fingerprintKey, 16, { N: 1024, r: 8, p: 1 }).toString("hex")
+    const fingerprint = scryptSync(String(value), fingerprintKey, 16, {N: 1024, r: 8, p: 1}).toString("hex")
     return `${fingerprint} (redacted fingerprint)`
-  } catch {
+  }
+  catch {
     return REDACTED_VALUE
   }
 }

@@ -39,7 +39,7 @@ describe("createFilter – build/app/**/* partial directory matching (test-app-b
     "package.json",
     "!**/*.{iml,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,suo,xproj,cc,d.ts,mk,a,o,obj,forge-meta,pdb}",
     "!**/._*",
-    "!**/electron-builder.{yaml,yml,json,json5,toml,ts}",
+    "!**/electron-builder.json",
   ])
   const filter = matcher.createFilter()
 

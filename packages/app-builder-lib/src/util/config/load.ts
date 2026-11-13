@@ -1,54 +1,29 @@
-import { log } from "builder-util"
-import { parse as parseEnv } from "dotenv"
-import { DotenvParseInput, expand } from "dotenv-expand"
 import { promises as fs } from "fs"
-import { createJiti } from "jiti"
-import { load } from "js-yaml"
 import { Lazy } from "lazy-val"
 import * as path from "path"
-import { resolveModule } from "../resolve"
-
-const jiti = createJiti(__filename)
 
 export interface ReadConfigResult<T> {
   readonly result: T
   readonly configFile: string | null
 }
 
-async function readConfig<T>(configFile: string, request: ReadConfigRequest): Promise<ReadConfigResult<T>> {
+async function readConfig<T>(configFile: string, _request: ReadConfigRequest): Promise<ReadConfigResult<T>> {
   const data = await fs.readFile(configFile, "utf8")
   let result: any
-  if (configFile.endsWith(".json5") || configFile.endsWith(".json")) {
-    result = require("json5").parse(data)
-  } else if (configFile.endsWith(".js") || configFile.endsWith(".cjs") || configFile.endsWith(".mjs")) {
-    const json = await orNullIfFileNotExist(fs.readFile(path.join(process.cwd(), "package.json"), "utf8"))
-    const moduleType = json === null ? null : JSON.parse(json).type
-    result = await resolveModule(moduleType, configFile)
-    if (result.default != null) {
-      result = result.default
-    }
-    if (typeof result === "function") {
-      result = result(request)
-    }
-    result = await Promise.resolve(result)
-  } else if (configFile.endsWith(".ts")) {
-    result = await jiti.import(configFile, { default: true })
 
-    if (typeof result === "function") {
-      result = result(request)
-    }
-    result = await Promise.resolve(result)
-  } else if (configFile.endsWith(".toml")) {
-    result = require("toml").parse(data)
-  } else {
-    result = load(data)
+  if (configFile.endsWith(".json")) {
+    result = JSON.parse(data)
   }
-  return { result, configFile }
+  else {
+    throw new Error("who do you think you are (needs json config)")
+  }
+
+  return {result, configFile}
 }
 
 export async function findAndReadConfig<T>(request: ReadConfigRequest): Promise<ReadConfigResult<T> | null> {
   const prefix = request.configFilename
-  for (const configFile of [`${prefix}.yml`, `${prefix}.yaml`, `${prefix}.json`, `${prefix}.json5`, `${prefix}.toml`, `${prefix}.js`, `${prefix}.cjs`, `${prefix}.ts`]) {
+  for (const configFile of [`${prefix}.json`]) {
     const data = await orNullIfFileNotExist(readConfig<T>(path.join(request.projectDir, configFile), request))
     if (data != null) {
       return data
@@ -87,13 +62,14 @@ export async function loadConfig<T>(request: ReadConfigRequest): Promise<ReadCon
   }
 
   const data: T = packageMetadata == null ? null : packageMetadata[request.packageKey]
-  return data == null ? findAndReadConfig<T>(request) : { result: data, configFile: null }
+  return data == null ? findAndReadConfig<T>(request) : {result: data, configFile: null}
 }
 
 export function getConfig<T>(request: ReadConfigRequest, configPath?: string | null): Promise<ReadConfigResult<T> | null> {
   if (configPath == null) {
     return loadConfig<T>(request)
-  } else {
+  }
+  else {
     return readConfig<T>(path.resolve(request.projectDir, configPath), request)
   }
 }
@@ -110,7 +86,8 @@ export async function loadParentConfig<T>(request: ReadConfigRequest, spec: stri
     let resolved: string | null = null
     try {
       resolved = require.resolve(spec)
-    } catch (_e) {
+    }
+    catch (_e) {
       // ignore
     }
 
@@ -124,22 +101,4 @@ export async function loadParentConfig<T>(request: ReadConfigRequest, spec: stri
   }
 
   return parentConfig
-}
-
-export async function loadEnv(envFile: string) {
-  const data = await orNullIfFileNotExist(fs.readFile(envFile, "utf8"))
-  if (data == null) {
-    return null
-  }
-
-  const parsed = parseEnv<DotenvParseInput>(data)
-
-  log.info({ envFile }, "injecting environment")
-  Object.entries(parsed).forEach(([key, value]) => {
-    if (!Object.prototype.hasOwnProperty.call(process.env, key)) {
-      process.env[key] = value
-    }
-  })
-  expand({ parsed })
-  return parsed
 }

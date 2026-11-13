@@ -25,7 +25,6 @@ export { retry } from "./retry"
 export { parseDn } from "./rfc2253Parser"
 export { BlockMapDataHolder, PackageFileInfo, ReleaseNoteInfo, UpdateFileInfo, UpdateInfo, WindowsUpdateInfo } from "./updateInfo"
 export { UUID } from "./uuid"
-export { parseXml, XElement } from "./xml"
 export { isValidKey, mapToObject, asArray, Nullish, deepAssign, objectToArgs } from "./objects"
 
 // nsis

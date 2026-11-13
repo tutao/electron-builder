@@ -63,16 +63,10 @@
     "builder-util": "26.18.1",
     "builder-util-runtime": "9.7.1",
     "chromium-pickle-js": "^0.2.0",
-    "ci-info": "4.3.1",
     "debug": "^4.3.4",
-    "dotenv": "^16.4.5",
-    "dotenv-expand": "^11.0.6",
     "fs-extra": "^10.1.0",
-    "hosted-git-info": "^4.1.0",
     "isbinaryfile": "^5.0.0",
-    "jiti": "^2.4.2",
     "js-yaml": "^4.1.0",
-    "json5": "^2.2.3",
     "lazy-val": "^1.0.5",
     "minimatch": "^10.2.5",
     "pkijs": "^3.4.0",
@@ -100,8 +94,7 @@
     "@types/tiny-async-pool": "^1",
     "@types/unzipper": "^0.10.11",
     "@types/which": "^3.0.4",
-    "dmg-builder": "26.18.1",
-    "toml": "^3.0.0"
+    "dmg-builder": "26.18.1"
   },
   "peerDependencies": {
     "dmg-builder": "26.18.1"

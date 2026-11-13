@@ -1,6 +1,6 @@
 import { getPath7za } from "app-builder-lib/src/toolsets/7zip"
 import { Arch, exec } from "builder-util"
-import { parseXml } from "builder-util-runtime"
+import { parseXml } from "builder-util-runtime/out/xml"
 import { Platform } from "electron-builder"
 import { outputFile } from "fs-extra"
 import * as fs from "fs/promises"
@@ -10,11 +10,11 @@ import type { ExpectStatic } from "vitest"
 import { assertThat } from "../helpers/fileAssert"
 import { app, copyTestAsset, createMacTargetTest, getFixtureDir, parseFileList } from "../helpers/packTester"
 
-test.ifMac("invalid target", ({ expect }) => expect(createMacTargetTest(expect, ["ttt" as any])).rejects.toThrow())
+test.ifMac("invalid target", ({expect}) => expect(createMacTargetTest(expect, ["ttt" as any])).rejects.toThrow())
 
-test.ifNotWindows("only zip", ({ expect }) => createMacTargetTest(expect, ["zip"], undefined, false /* no need to test sign */))
+test.ifNotWindows("only zip", ({expect}) => createMacTargetTest(expect, ["zip"], undefined, false /* no need to test sign */))
 
-test.ifNotWindows("tar.gz", ({ expect }) => createMacTargetTest(expect, ["tar.gz"]))
+test.ifNotWindows("tar.gz", ({expect}) => createMacTargetTest(expect, ["tar.gz"]))
 
 // test.ifNotWindows("tar.xz", createTargetTest(["tar.xz"], ["Test App ßW-1.1.0-mac.tar.xz"]))
 
@@ -27,7 +27,7 @@ function createMacFrameworkSymlinkTest(expect: ExpectStatic, format: "zip" | "7z
     expect,
     {
       targets: Platform.MAC.createTarget(format, Arch.x64),
-      config: { mac: { target: format }, publish: null },
+      config: {mac: {target: format}, publish: null},
     },
     {
       signed: false,
@@ -36,11 +36,12 @@ function createMacFrameworkSymlinkTest(expect: ExpectStatic, format: "zip" | "7z
         expect(artifactName, `expected a .${format} artifact in ${context.outDir}`).toBeTruthy()
         const artifactPath = path.join(context.outDir, artifactName!)
 
-        const extractDir = await context.tmpDir.createTempDir({ prefix: `mac-${format}-symlink` })
+        const extractDir = await context.tmpDir.createTempDir({prefix: `mac-${format}-symlink`})
         if (format === "zip") {
           // `ditto -x -k` mirrors how Squirrel.Mac extracts the auto-update payload
           await exec("ditto", ["-x", "-k", artifactPath, extractDir])
-        } else {
+        }
+        else {
           await exec(await getPath7za(), ["x", `-o${extractDir}`, "-y", artifactPath])
         }
 
@@ -57,15 +58,15 @@ function createMacFrameworkSymlinkTest(expect: ExpectStatic, format: "zip" | "7z
   )
 }
 
-test.heavy.ifMac("zip preserves .framework symlinks (#9846)", ({ expect }) => createMacFrameworkSymlinkTest(expect, "zip"))
+test.heavy.ifMac("zip preserves .framework symlinks (#9846)", ({expect}) => createMacFrameworkSymlinkTest(expect, "zip"))
 
-test.heavy.ifMac("7z preserves .framework symlinks (#9846)", ({ expect }) => createMacFrameworkSymlinkTest(expect, "7z"))
+test.heavy.ifMac("7z preserves .framework symlinks (#9846)", ({expect}) => createMacFrameworkSymlinkTest(expect, "7z"))
 
 const it = process.env.CSC_KEY_PASSWORD == null ? test.skip : test.ifMac
 
-it("pkg", ({ expect }) => createMacTargetTest(expect, ["pkg"]))
+it("pkg", ({expect}) => createMacTargetTest(expect, ["pkg"]))
 
-test.ifMac("empty installLocation", ({ expect }) =>
+test.ifMac("empty installLocation", ({expect}) =>
   app(
     expect,
     {
@@ -85,7 +86,7 @@ test.ifMac("empty installLocation", ({ expect }) =>
   )
 )
 
-test.ifMac("extraDistFiles", ({ expect }) =>
+test.ifMac("extraDistFiles", ({expect}) =>
   app(
     expect,
     {
@@ -105,7 +106,7 @@ test.ifMac("extraDistFiles", ({ expect }) =>
   )
 )
 
-test.ifMac("pkg extended configuration", ({ expect }) =>
+test.ifMac("pkg extended configuration", ({expect}) =>
   app(
     expect,
     {
@@ -153,7 +154,7 @@ test.ifMac("pkg extended configuration", ({ expect }) =>
   )
 )
 
-test.ifMac("pkg scripts", ({ expect }) =>
+test.ifMac("pkg scripts", ({expect}) =>
   app(
     expect,
     {
@@ -196,7 +197,7 @@ test.ifMac("pkg scripts", ({ expect }) =>
   )
 )
 
-test.ifMac("pkg hostArchitectures for arm64", ({ expect }) =>
+test.ifMac("pkg hostArchitectures for arm64", ({expect}) =>
   app(
     expect,
     {
@@ -210,13 +211,13 @@ test.ifMac("pkg hostArchitectures for arm64", ({ expect }) =>
         await exec("pkgutil", ["--expand", pkgPath, unpackedDir])
 
         const distributionXml = await fs.readFile(path.join(unpackedDir, "Distribution"), "utf8")
-        expect(distributionXml).toContain('hostArchitectures="arm64"')
+        expect(distributionXml).toContain("hostArchitectures=\"arm64\"")
       },
     }
   )
 )
 
-test.ifMac("pkg hostArchitectures for x64", ({ expect }) =>
+test.ifMac("pkg hostArchitectures for x64", ({expect}) =>
   app(
     expect,
     {
@@ -230,13 +231,13 @@ test.ifMac("pkg hostArchitectures for x64", ({ expect }) =>
         await exec("pkgutil", ["--expand", pkgPath, unpackedDir])
 
         const distributionXml = await fs.readFile(path.join(unpackedDir, "Distribution"), "utf8")
-        expect(distributionXml).toContain('hostArchitectures="x86_64"')
+        expect(distributionXml).toContain("hostArchitectures=\"x86_64\"")
       },
     }
   )
 )
 
-test.ifMac("pkg minimumSystemVersion adds volume-check", ({ expect }) =>
+test.ifMac("pkg minimumSystemVersion adds volume-check", ({expect}) =>
   app(
     expect,
     {
@@ -256,13 +257,13 @@ test.ifMac("pkg minimumSystemVersion adds volume-check", ({ expect }) =>
 
         const distributionXml = await fs.readFile(path.join(unpackedDir, "Distribution"), "utf8")
         expect(distributionXml).toContain("<volume-check>")
-        expect(distributionXml).toContain('<os-version min="12.0"')
+        expect(distributionXml).toContain("<os-version min=\"12.0\"")
       },
     }
   )
 )
 
-test.ifMac("pkg extra packages", async ({ expect }) => {
+test.ifMac("pkg extra packages", async ({expect}) => {
   const extraPackages = path.join("build", "extra-packages")
   return app(
     expect,

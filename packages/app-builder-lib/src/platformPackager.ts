@@ -1,28 +1,12 @@
 import type { FuseConfig, FuseV1Config } from "@electron/fuses"
-import { dynamicImport } from "./util/dynamicImport"
-import {
-  Arch,
-  asArray,
-  AsyncTaskManager,
-  DebugLogger,
-  defaultArchFromString,
-  FileTransformer,
-  getArchSuffix,
-  getArtifactArchName,
-  InvalidConfigurationError,
-  isEmptyOrSpaces,
-  log,
-  orIfFileNotExist,
-  sanitizeDirPath,
-  statOrNull,
-} from "builder-util"
+import { Arch, asArray, AsyncTaskManager, DebugLogger, defaultArchFromString, FileTransformer, getArchSuffix, getArtifactArchName, InvalidConfigurationError, isEmptyOrSpaces, log, orIfFileNotExist, sanitizeDirPath, statOrNull, } from "builder-util"
 import { deepAssign, Nullish } from "builder-util-runtime"
+import * as fs from "fs/promises"
 import { readdir } from "fs/promises"
 import { Lazy } from "lazy-val"
 import { Minimatch } from "minimatch"
-import * as path from "path"
-import * as fs from "fs/promises"
 import * as os from "os"
+import * as path from "path"
 import { AppInfo } from "./appInfo"
 import { checkFileInArchive } from "./asar/asarFileChecker"
 import { AsarPackager } from "./asar/asarUtil"
@@ -31,25 +15,12 @@ import { FuseOptionsV1 } from "./configuration"
 import { copyFiles, FileMatcher, getFileMatchers, GetFileMatchersOptions, getMainFileMatchers, getNodeModuleFileMatcher } from "./fileMatcher"
 import { createTransformer, isElectronCompileUsed } from "./fileTransformer"
 import { Framework, isElectronBased } from "./Framework"
-import {
-  AfterPackContext,
-  AsarOptions,
-  CompressionLevel,
-  Configuration,
-  ElectronPlatformName,
-  FileAssociation,
-  LinuxPackager,
-  Packager,
-  PackagerOptions,
-  Platform,
-  PlatformSpecificBuildOptions,
-  Target,
-  TargetSpecificOptions,
-} from "./index"
+import { AfterPackContext, AsarOptions, CompressionLevel, Configuration, ElectronPlatformName, FileAssociation, LinuxPackager, Packager, PackagerOptions, Platform, PlatformSpecificBuildOptions, Target, TargetSpecificOptions, } from "./index"
 import { computeFileSets, computeNodeModuleFileSets, copyAppFiles, ELECTRON_COMPILE_SHIM_FILENAME, transformFiles } from "./util/appFileCopier"
+import { dynamicImport } from "./util/dynamicImport"
 import { convertIcon, IconFormat, IconInfo } from "./util/iconConverter"
-import { expandMacro as doExpandMacro } from "./util/macroExpander"
 import { AssetCatalogResult, generateAssetCatalogForIcon } from "./util/macosIconComposer"
+import { expandMacro as doExpandMacro } from "./util/macroExpander"
 
 export type DoPackOptions<DC extends PlatformSpecificBuildOptions> = {
   outDir: string
@@ -133,9 +104,10 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
   getCscPassword(): string {
     const password = this.doGetCscPassword()
     if (isEmptyOrSpaces(password)) {
-      log.info({ reason: "CSC_KEY_PASSWORD is not defined" }, "empty password will be used for code signing")
+      log.info({reason: "CSC_KEY_PASSWORD is not defined"}, "empty password will be used for code signing")
       return ""
-    } else {
+    }
+    else {
       return password.trim()
     }
   }
@@ -155,10 +127,10 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     // codeql[js/shell-command-constructed-from-input] - prepackaged and outDir are validated via sanitizeDirPath in the Packager constructor
     return path.resolve(
       this.packagerOptions.prepackaged ||
-        path.join(
-          outDir,
-          `${this.platform.buildConfigurationKey}${getArchSuffix(arch, this.platformSpecificBuildOptions.defaultArch)}${this.platform === Platform.MAC ? "" : "-unpacked"}`
-        )
+      path.join(
+        outDir,
+        `${this.platform.buildConfigurationKey}${getArchSuffix(arch, this.platformSpecificBuildOptions.defaultArch)}${this.platform === Platform.MAC ? "" : "-unpacked"}`
+      )
     )
   }
 
@@ -211,7 +183,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
 
   createGetFileMatchersOptions(outDir: string, arch: Arch, customBuildOptions: PlatformSpecificBuildOptions): GetFileMatchersOptions {
     return {
-      macroExpander: it => this.expandMacro(it, arch == null ? null : Arch[arch], { "/*": "{,/**/*}" }),
+      macroExpander: it => this.expandMacro(it, arch == null ? null : Arch[arch], {"/*": "{,/**/*}"}),
       customBuildOptions,
       globalOutDir: outDir,
       defaultSrc: this.projectDir,
@@ -230,7 +202,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     // Due to node-gyp rewriting GYP_MSVS_VERSION when reused across the same session, we must reset the env var: https://github.com/electron-userland/electron-builder/issues/7256
     delete process.env.GYP_MSVS_VERSION
 
-    const { outDir, appOutDir, platformName, arch, platformSpecificBuildOptions, targets, options } = packOptions
+    const {outDir, appOutDir, platformName, arch, platformSpecificBuildOptions, targets, options} = packOptions
 
     await this.info.emitBeforePack({
       appOutDir,
@@ -240,8 +212,6 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
       packager: this,
       electronPlatformName: platformName,
     })
-
-    await this.info.installAppDependencies(this.platform, arch)
 
     if (this.info.cancellationToken.cancelled) {
       return
@@ -321,7 +291,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
 
       let asarIntegrity: AsarIntegrity | null = null
       if (!(asarOptions == null || options?.disableAsarIntegrity || this.config.disableAsarIntegrity)) {
-        asarIntegrity = await computeData({ resourcesPath, resourcesRelativePath, resourcesDestinationPath: this.getResourcesDir(appOutDir), extraResourceMatchers })
+        asarIntegrity = await computeData({resourcesPath, resourcesRelativePath, resourcesDestinationPath: this.getResourcesDir(appOutDir), extraResourceMatchers})
       }
 
       await framework.beforeCopyExtraFiles({
@@ -371,7 +341,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
   }
 
   private async generateFuseConfig(fuses: FuseOptionsV1): Promise<FuseV1Config> {
-    const { FuseVersion, FuseV1Options } = await dynamicImport<typeof import("@electron/fuses")>("@electron/fuses")
+    const {FuseVersion, FuseV1Options} = await dynamicImport<typeof import("@electron/fuses")>("@electron/fuses")
     const config: FuseV1Config = {
       version: FuseVersion.V1,
       resetAdHocDarwinSignature: fuses.resetAdHocDarwinSignature,
@@ -415,7 +385,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
    * ```
    */
   public async addElectronFuses(context: AfterPackContext, fuses: FuseConfig) {
-    const { appOutDir, electronPlatformName } = context
+    const {appOutDir, electronPlatformName} = context
 
     const ext = {
       darwin: ".app",
@@ -427,8 +397,8 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     const executableName = this instanceof LinuxPackager ? this.executableName : this.appInfo.productFilename
     const electronBinaryPath = path.join(appOutDir, `${executableName}${ext}`)
 
-    log.info({ electronPath: log.filePath(electronBinaryPath) }, "executing @electron/fuses")
-    const { flipFuses } = await dynamicImport<typeof import("@electron/fuses")>("@electron/fuses")
+    log.info({electronPath: log.filePath(electronBinaryPath)}, "executing @electron/fuses")
+    const {flipFuses} = await dynamicImport<typeof import("@electron/fuses")>("@electron/fuses")
     return flipFuses(electronBinaryPath, fuses)
   }
 
@@ -446,7 +416,8 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     const didSign = await this.signApp(packContext, isAsar)
     if (didSign) {
       await this.info.emitAfterSign(packContext)
-    } else if (this.info.filterPackagerEventListeners("afterSign", "user").length) {
+    }
+    else if (this.info.filterPackagerEventListeners("afterSign", "user").length) {
       log.warn(null, `skipping "afterSign" hook as no signing occurred, perhaps you intended "afterPack"?`)
     }
   }
@@ -483,10 +454,10 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
       config,
       isElectronCompile
         ? {
-            originalMain: this.info.metadata.main,
-            main: ELECTRON_COMPILE_SHIM_FILENAME,
-            ...config.extraMetadata,
-          }
+          originalMain: this.info.metadata.main,
+          main: ELECTRON_COMPILE_SHIM_FILENAME,
+          ...config.extraMetadata,
+        }
         : config.extraMetadata,
       framework.createTransformer == null ? null : framework.createTransformer()
     )
@@ -507,7 +478,8 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
         fileSets.forEach(it => taskManager.addTask(copyAppFiles(it, this.info, transformer)))
         await taskManager.awaitTasks()
       })
-    } else if (asarOptions == null) {
+    }
+    else if (asarOptions == null) {
       // for ASAR all asar unpacked files will be extra transformed (e.g. sign of EXE and DLL) later,
       // for prepackaged asar extra transformation not supported yet,
       // so, extra transform if asar is disabled
@@ -526,7 +498,8 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
         fileSets.forEach(it => taskManager.addTask(copyAppFiles(it, this.info, combinedTransformer)))
         await taskManager.awaitTasks()
       })
-    } else {
+    }
+    else {
       const unpackPattern = getFileMatchers(config, "asarUnpack", defaultDestination, {
         macroExpander,
         customBuildOptions: platformSpecificBuildOptions,
@@ -627,6 +600,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     const electronFrameworkName = path.basename(this.info.framework.distMacOsAppName, ".app") + " " + "Framework.framework"
     return path.join(appOutDir, `${this.appInfo.productFilename}.app`, "Contents", "Frameworks", electronFrameworkName, "Versions", "A", "Resources")
   }
+
   public getMacOsResourcesDir(appOutDir: string): string {
     return path.join(appOutDir, `${this.appInfo.productFilename}.app`, "Contents", "Resources")
   }
@@ -658,12 +632,14 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
       let mainPath = pathSplit.length > partWithAsarIndex + 1 ? path.join.apply(pathSplit.slice(partWithAsarIndex + 1)) : ""
       mainPath += path.join(mainPath, pathParsed.base)
       await checkFileInArchive(path.join(resourcesDir, "app", asarPath), mainPath, messagePrefix)
-    } else {
+    }
+    else {
       const fullPath = path.join(resourcesDir, "app", relativeFile)
       const outStat = await statOrNull(fullPath)
       if (outStat == null) {
         throw new Error(`${messagePrefix} "${fullPath}" does not exist. Seems like a wrong configuration.`)
-      } else {
+      }
+      else {
         //noinspection ES6MissingAwait
         if (!outStat.isFile()) {
           throw new Error(`${messagePrefix} "${fullPath}" is not a file. Seems like a wrong configuration.`)
@@ -676,7 +652,8 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     const outStat = await statOrNull(appOutDir)
     if (outStat == null) {
       throw new Error(`Output directory "${appOutDir}" does not exist. Seems like a wrong configuration.`)
-    } else {
+    }
+    else {
       //noinspection ES6MissingAwait
       if (!outStat.isDirectory()) {
         throw new Error(`Output directory "${appOutDir}" is not a directory. Seems like a wrong configuration.`)
@@ -711,7 +688,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     skipDefaultArch = true,
     defaultArch?: string
   ): string {
-    const { pattern, isUserForced } = this.artifactPatternConfig(targetSpecificOptions, defaultPattern)
+    const {pattern, isUserForced} = this.artifactPatternConfig(targetSpecificOptions, defaultPattern)
     return this.computeArtifactName(pattern, ext, !isUserForced && skipDefaultArch && arch === defaultArchFromString(defaultArch) ? null : arch)
   }
 
@@ -736,7 +713,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
   }
 
   expandMacro(pattern: string, arch?: string | null, extra: any = {}, isProductNameSanitized = true): string {
-    return doExpandMacro(pattern, arch, this.appInfo, { os: this.platform.buildConfigurationKey, ...extra }, isProductNameSanitized)
+    return doExpandMacro(pattern, arch, this.appInfo, {os: this.platform.buildConfigurationKey, ...extra}, isProductNameSanitized)
   }
 
   generateName2(ext: string | null, classifier: string | Nullish, deployment: boolean): string {
@@ -746,7 +723,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
   }
 
   getTempFile(suffix: string): Promise<string> {
-    return this.info.tempDirManager.getTempFile({ suffix })
+    return this.info.tempDirManager.getTempFile({suffix})
   }
 
   get fileAssociations(): Array<FileAssociation> {
@@ -763,7 +740,8 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
           return sanitizeDirPath(path.join(resourcesDir, path.basename(name)), resourcesDir)
         }
       }
-    } else if (custom != null && !isEmptyOrSpaces(custom)) {
+    }
+    else if (custom != null && !isEmptyOrSpaces(custom)) {
       const resourceList = await this.resourceList
       if (resourceList.includes(custom)) {
         return sanitizeDirPath(path.join(resourcesDir, path.basename(custom)), resourcesDir)
@@ -790,6 +768,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
   }
 
   private assetCatalogResults = new Map<string, Promise<AssetCatalogResult>>()
+
   protected generateAssetCatalogData(iconPath: string): Promise<AssetCatalogResult> {
     // Cache results
     const cachedPromise = this.assetCatalogResults.get(iconPath)
@@ -803,6 +782,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
   }
 
   private cachedIcnsFromIconFile = new Map<string, Promise<string>>()
+
   async generateIcnsFromIcon(iconPath: string): Promise<string> {
     const cachedPromise = this.cachedIcnsFromIconFile.get(iconPath)
     if (cachedPromise) {
@@ -810,7 +790,7 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     }
 
     const runner = async () => {
-      const { icnsFile } = await this.generateAssetCatalogData(iconPath)
+      const {icnsFile} = await this.generateAssetCatalogData(iconPath)
 
       // Generate icns file
       const tempDir = await fs.mkdtemp(path.resolve(os.tmpdir(), "icon-compile-"))
@@ -843,9 +823,10 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
         return framework.getDefaultIcon(this.platform)
       }
 
-      log.warn({ reason: "application icon is not set" }, `default ${capitalizeFirstLetter(framework.name)} icon is used`)
+      log.warn({reason: "application icon is not set"}, `default ${capitalizeFirstLetter(framework.name)} icon is used`)
       return this.getDefaultFrameworkIcon()
-    } else {
+    }
+    else {
       return result[0].file
     }
   }
@@ -864,14 +845,14 @@ export abstract class PlatformPackager<DC extends PlatformSpecificBuildOptions> 
     const filteredSources = sources.filter(s => !s.endsWith(".icon"))
     const filteredFallbacks = fallbackSources.filter(s => !s.endsWith(".icon"))
 
-    const result = await convertIcon({ sources: filteredSources, fallbackSources: filteredFallbacks, roots, format: outputFormat, outDir })
+    const result = await convertIcon({sources: filteredSources, fallbackSources: filteredFallbacks, roots, format: outputFormat, outDir})
 
     if (result.error != null) {
       throw new InvalidConfigurationError(result.error, result.errorCode)
     }
 
     if (result.isFallback) {
-      log.warn({ reason: "application icon is not set" }, `default ${capitalizeFirstLetter(this.info.framework.name)} icon is used`)
+      log.warn({reason: "application icon is not set"}, `default ${capitalizeFirstLetter(this.info.framework.name)} icon is used`)
     }
 
     return result.icons
