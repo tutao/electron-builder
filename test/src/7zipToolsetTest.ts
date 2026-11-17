@@ -1,3 +1,4 @@
+import { downloadBuilderToolset } from "app-builder-lib"
 import { afterEach, describe, vi } from "vitest"
 
 vi.mock("builder-util", async () => ({
@@ -12,12 +13,10 @@ vi.mock("app-builder-lib/src/util/electronGet", () => ({
   downloadBuilderToolset: vi.fn(),
 }))
 
-import { downloadBuilderToolset } from "app-builder-lib/src/util/electronGet"
-
 // Each test re-imports the module so the module-level `_resolvedPath` cache is reset.
 async function freshGetPath7za() {
   vi.resetModules()
-  const { getPath7za } = await import("app-builder-lib/src/toolsets/7zip")
+  const {getPath7za} = await import("app-builder-lib")
   return getPath7za
 }
 
@@ -26,14 +25,14 @@ afterEach(() => {
 })
 
 describe.sequential("getPath7za memoization", () => {
-  test("returns the resolved path on success", async ({ expect }) => {
+  test("returns the resolved path on success", async ({expect}) => {
     vi.mocked(downloadBuilderToolset).mockResolvedValueOnce("/fake/tooldir")
     const getPath7za = await freshGetPath7za()
     const p = await getPath7za()
     expect(p).toContain("7za")
   })
 
-  test("on failure, resets the cache so a second call can retry", async ({ expect }) => {
+  test("on failure, resets the cache so a second call can retry", async ({expect}) => {
     const downloadMock = vi.mocked(downloadBuilderToolset)
     downloadMock.mockRejectedValueOnce(new Error("network error"))
     downloadMock.mockResolvedValueOnce("/fake/tooldir")
@@ -49,7 +48,7 @@ describe.sequential("getPath7za memoization", () => {
     expect(downloadMock).toHaveBeenCalledTimes(2)
   })
 
-  test("concurrent calls during a pending resolve share one download", async ({ expect }) => {
+  test("concurrent calls during a pending resolve share one download", async ({expect}) => {
     const downloadMock = vi.mocked(downloadBuilderToolset)
     downloadMock.mockResolvedValue("/fake/tooldir")
 

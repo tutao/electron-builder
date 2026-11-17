@@ -1,5 +1,4 @@
-import { PM } from "app-builder-lib/out/node-module-collector/packageManager"
-import { doMergeConfigs } from "app-builder-lib/out/util/config/config"
+import { doMergeConfigs, PM } from "app-builder-lib"
 import { Arch, createTargets, DIR_TARGET, Platform } from "electron-builder"
 import { promises as fs } from "fs"
 import { outputFile, outputJson } from "fs-extra"
