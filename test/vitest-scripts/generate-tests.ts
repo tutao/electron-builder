@@ -7,7 +7,7 @@ import { generateWindowsToolsetTests } from "./generate-toolset-tests-windows"
 const generateTests = () => {
   if (existsSync(GENERATED_TESTS_DIR)) {
     // Clear out old generated tests before generating new ones
-    rmSync(GENERATED_TESTS_DIR, { recursive: true })
+    rmSync(GENERATED_TESTS_DIR, {recursive: true})
   }
   generateLinuxToolsetTests()
   generateWindowsToolsetTests()

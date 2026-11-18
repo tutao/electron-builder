@@ -1,21 +1,19 @@
 import AdmZip from "adm-zip"
 import { PublishManager } from "app-builder-lib"
 import { AsarIntegrity } from "app-builder-lib/out/asar/integrity"
-import { getCollectorByPackageManager, PM } from "app-builder-lib/out/node-module-collector"
+import { PM } from "app-builder-lib/out/node-module-collector"
 import { detectPackageManager } from "app-builder-lib/out/node-module-collector/packageManager"
 import { computeArchToTargetNamesMap } from "app-builder-lib/out/targets/targetFactory"
 import { getLinuxToolsMacToolset } from "app-builder-lib/out/toolsets/linux"
-import { computeDefaultAppDirectory } from "app-builder-lib/out/util/config/config"
 import { parsePlistFile, PlistObject } from "app-builder-lib/out/util/plist"
-import { installDependencies } from "app-builder-lib/out/util/yarn"
-import { addValue, copyDir, exec, executeFinally, exists, FileCopier, log, USE_HARD_LINKS, walk } from "builder-util"
+import { addValue, copyDir, exec, executeFinally, FileCopier, log, USE_HARD_LINKS, walk } from "builder-util"
 import { CancellationToken, deepAssign, UpdateFileInfo } from "builder-util-runtime"
 import { execSync } from "child_process"
 import { Arch, ArtifactCreated, Configuration, DIR_TARGET, getArchSuffix, MacOsTargetName, Packager, PackagerOptions, Platform, Target } from "electron-builder"
 import { PublishPolicy } from "electron-publish"
 import { convertVersion } from "electron-winstaller"
 import { realpath as realpathCb } from "fs"
-import { copyFile, emptyDir, mkdir, writeJson } from "fs-extra"
+import { emptyDir, writeJson } from "fs-extra"
 import * as fs from "fs/promises"
 import { load } from "js-yaml"
 import * as path from "path"
@@ -29,7 +27,6 @@ import type { ExpectStatic } from "vitest"
 import { verifyAsarFileTree as _verifyAsarFileTree } from "./asarVerifier"
 import { MAC_CSC_LINK, WIN_CSC_LINK } from "./codeSignData"
 import { assertThat } from "./fileAssert"
-import { ELECTRON_VERSION } from "./testConfig"
 
 const PACKAGE_MANAGER_VERSION_MAP = {
   [PM.NPM]: {cli: "npm", version: "12.0.2"},
@@ -48,41 +45,6 @@ export function getPackageManagerWithVersion(pm: PM, packageManagerAndVersionStr
     version: packageManagerInfo.version,
     prepareEntry: prepare,
   }
-}
-
-function getLockedInstallArgs(pm: PM): Array<string> | undefined {
-  switch (pm) {
-    default:
-      return undefined
-  }
-}
-
-function getUnlockedInstallArgs(pm: PM): Array<string> | undefined {
-  return undefined
-}
-
-// Fixture dependencies come straight from the registry and must never run their own install hooks (supply chain).
-// Nothing is lost: native modules are built by electron-builder's own @electron/rebuild step right after the
-// install, which is the product feature under test. npm, yarn 1, pnpm and bun all take `--ignore-scripts` on
-// `install`; yarn berry has no such flag and is handled through YARN_ENABLE_SCRIPTS on the install env instead.
-function getIgnoreScriptsInstallArgs(pm: PM): Array<string> {
-  return ["--ignore-scripts"]
-}
-
-function getLockfileFixtureNameCandidates(currentTestName: string): Array<string> {
-  const names: Array<string> = []
-  const normalizedTestName = currentTestName.trim()
-
-  const leafTestName = normalizedTestName.split(" > ").at(-1)?.trim()
-  if (leafTestName != null && leafTestName.length > 0) {
-    names.push(sanitizeFileName(leafTestName))
-  }
-
-  if (normalizedTestName.length > 0) {
-    names.push(sanitizeFileName(normalizedTestName))
-  }
-
-  return [...new Set(names.filter(Boolean))]
 }
 
 export const EXTENDED_TIMEOUT = 14 * 60 * 1000
@@ -172,22 +134,6 @@ export async function assertPack(expect: ExpectStatic, fixtureName: string, pack
     log.info({customTmpDir}, "custom temp dir used")
   }
 
-  const state = expect.getState()
-  const lockfileFixtureName = path.basename(state.testPath!, path.extname(state.testPath!))
-  const lockfilePathPrefix = path.join(__dirname, "..", "..", "fixtures", "lockfiles", lockfileFixtureName)
-  const lockfileFixtureNameCandidates = getLockfileFixtureNameCandidates(state.currentTestName || "")
-  if (lockfileFixtureNameCandidates.length === 0) {
-    lockfileFixtureNameCandidates.push("unknown-test")
-  }
-  const lockfileFixturePathCandidates = lockfileFixtureNameCandidates.map(name => path.join(lockfilePathPrefix, `${name}.txt`))
-  let testFixtureLockfile = lockfileFixturePathCandidates[0]
-  for (const lockfilePath of lockfileFixturePathCandidates) {
-    if (await exists(lockfilePath)) {
-      testFixtureLockfile = lockfilePath
-      break
-    }
-  }
-
   await copyDir(projectDir, dir, {
     filter: it => {
       const basename = path.basename(it)
@@ -245,58 +191,10 @@ export async function assertPack(expect: ExpectStatic, fixtureName: string, pack
         log.warn({message: err.message}, "⚠️ corepack prepare failed")
       }
 
-      const collector = getCollectorByPackageManager(pm, projectDir, tmpDir)
-      const collectorOptions = collector.installOptions
-
-      const destLockfile = path.join(projectDir, collectorOptions.lockfile)
-      let lockfileFixtureApplied = false
-
-      const shouldUpdateLockfiles = process.env.UPDATE_LOCKFILE_FIXTURES === "true" && !!checkOptions.storeDepsLockfileSnapshot
-      // check for lockfile fixture so we can use `--frozen-lockfile`
-      if ((await exists(testFixtureLockfile)) && !shouldUpdateLockfiles) {
-        await copyFile(testFixtureLockfile, destLockfile)
-        lockfileFixtureApplied = true
-      }
-
-      if (shouldUpdateLockfiles || !(await exists(destLockfile))) {
-        // When updating: clear the stale base-fixture lockfile so the package manager regenerates fresh.
-        // When no lockfile exists yet: create an empty stub to prevent package manager prompts.
-        await fs.writeFile(destLockfile, "")
-      }
-
-      const appDir = await computeDefaultAppDirectory(projectDir, configuration.directories?.app)
-      const lockfileInstallArgs = lockfileFixtureApplied ? getLockedInstallArgs(pm) : checkOptions.storeDepsLockfileSnapshot ? getUnlockedInstallArgs(pm) : undefined
-      const additionalInstallArgs = [...getIgnoreScriptsInstallArgs(pm), ...(lockfileInstallArgs ?? [])]
-      // Scoped to this install only: `runtimeEnv` also reaches the packager, whose install-or-rebuild path must keep
-      // building natives. YARN_ENABLE_SCRIPTS is read by yarn berry alone (see getIgnoreScriptsInstallArgs).
-      const installEnv = runtimeEnv
-
-      await installDependencies(
-        configuration,
-        {
-          projectDir: projectDir,
-          appDir: appDir,
-          workspaceRoot: null,
-        },
-        {
-          frameworkInfo: {version: ELECTRON_VERSION, useCustomDist: false},
-          additionalArgs: additionalInstallArgs,
-        },
-        installEnv
-      )
-
       if (typeof postNodeModulesInstallHook === "function") {
         await postNodeModulesInstallHook()
       }
 
-      // save or update lockfile fixture
-      if (shouldUpdateLockfiles) {
-        const fixtureDir = path.dirname(testFixtureLockfile)
-        if (!(await exists(fixtureDir))) {
-          await mkdir(fixtureDir, {recursive: true})
-        }
-        await copyFile(destLockfile, testFixtureLockfile)
-      }
 
       if (packagerOptions.projectDir != null) {
         packagerOptions.projectDir = path.resolve(projectDir, packagerOptions.projectDir)

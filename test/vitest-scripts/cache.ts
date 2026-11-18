@@ -1,7 +1,8 @@
 import * as fs from "fs"
 import * as path from "path"
+import { TestSpecification } from "vitest/node"
 import { CACHE_FILE, SupportedPlatforms } from "./smart-config"
-import { TestSpecification } from "vitest/dist/node"
+
 import { TEST_SRC_ROOT } from "./vitest-smart-reporter"
 
 export interface TestStats {
@@ -38,7 +39,7 @@ export function loadCache(): SmartCache {
   // Check if file exists BEFORE trying to read it
   if (!fs.existsSync(CACHE_FILE)) {
     console.log(`[loadCache] Cache file does not exist, starting fresh`)
-    return { tests: {}, files: {} }
+    return {tests: {}, files: {}}
   }
 
   try {
@@ -50,10 +51,11 @@ export function loadCache(): SmartCache {
     console.log(`[loadCache] ✓ Loaded cache - Tests: ${testCount}, Files: ${fileCount}`)
 
     return cache
-  } catch (err: any) {
+  }
+  catch (err: any) {
     console.error(`[loadCache] ✗ Error reading/parsing cache:`, err.message)
     console.error(`[loadCache] Starting with fresh cache`)
-    return { tests: {}, files: {} }
+    return {tests: {}, files: {}}
   }
 }
 
@@ -68,7 +70,7 @@ export function saveCache(cache: SmartCache) {
   const dir = path.dirname(CACHE_FILE)
   if (!fs.existsSync(dir)) {
     console.log(`[saveCache] Creating directory: ${dir}`)
-    fs.mkdirSync(dir, { recursive: true })
+    fs.mkdirSync(dir, {recursive: true})
   }
 
   try {
@@ -80,7 +82,8 @@ export function saveCache(cache: SmartCache) {
     fs.renameSync(tempFile, CACHE_FILE)
 
     console.log(`[saveCache] ✓ Cache saved successfully (${(content.length / 1024).toFixed(2)} KB)`)
-  } catch (err: any) {
+  }
+  catch (err: any) {
     console.error(`[saveCache] ✗ Error saving cache:`, err.message)
     throw err
   }
@@ -89,5 +92,5 @@ export function saveCache(cache: SmartCache) {
 export function getFileStats(cache: SmartCache, f: TestSpecification) {
   const file = path.relative(TEST_SRC_ROOT, f.moduleId).split(path.sep).join("/")
   const stat = cache.files[file]
-  return { stat, file }
+  return {stat, file}
 }

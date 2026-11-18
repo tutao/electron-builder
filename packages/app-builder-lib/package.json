@@ -3,6 +3,17 @@
   "description": "electron-builder lib",
   "version": "26.18.1",
   "main": "out/index.js",
+  "exports": {
+    ".": "./out/index.js",
+    "./internal/archive": "./out/targets/archive.js",
+    "./internal/configuration": "./out/configuration.js",
+    "./internal/toolsets/7zip": {
+      "node": "./out/toolsets/7zip.js",
+      "development": "./out/toolsets/7zip.js",
+      "import": "./out/toolsets/7zip.js"
+    },
+    "./internal/targets/differentialUpdateInfoBuilder": "./out/targets/differentialUpdateInfoBuilder.js"
+  },
   "files": [
     "out",
     "templates",

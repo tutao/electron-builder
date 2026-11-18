@@ -373,7 +373,7 @@ describe("downloadBuilderToolset", {sequential: true}, () => {
     // instance cold in CI, so it re-resolved 7za AFTER the mirror was stubbed and downloaded our
     // fixture bytes as "7zip-<platform>.tar.gz", failing the toolset checksum. The env var is read
     // from process.env at call time by every instance, making resolution instance-agnostic.
-    const {getPath7za} = await import("app-builder-lib/out/toolsets/7zip")
+    const {getPath7za} = await import("app-builder-lib/internal/toolsets/7zip")
     const cmd7za = await getPath7za()
     vi.stubEnv("ELECTRON_BUILDER_7ZIP_PATH", cmd7za)
 

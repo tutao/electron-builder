@@ -18,9 +18,7 @@ describe.heavy.ifMac("dmg", { sequential: true }, () => {
 
   beforeAll(async () => {
     // import at runtime to avoid issues on non-macOS platforms
-    const { attachAndExecute: a, getDmgTemplatePath: d } = await import("dmg-builder/out/dmgUtil")
-    attachAndExecute = a
-    getDmgTemplatePath = d
+    ;({ attachAndExecute, getDmgTemplatePath } = await import("dmg-builder"))
   })
 
   test("dmg", ({ expect }) =>

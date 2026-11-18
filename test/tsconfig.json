@@ -4,7 +4,15 @@
     "rootDir": ".",
     "outDir": "out",
     "skipLibCheck": true,
-    "baseUrl": "../packages"
+    "baseUrl": "../packages",
+    // It used to use "module": "commonjs" and "moduleResolution": "node" for the whole project.
+    // We switched it to
+    // Now we want to use import maps for importing internals from lib.
+    // This means we have to use literally any other algorithm.
+    // node16 seems to work with both 1. ts-node 2. export maps
+    // nodenext in addition works for importing esm modules from commonjs
+    "module": "nodenext",
+    "moduleResolution": "nodenext"
   },
   "references": [
     {

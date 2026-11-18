@@ -162,7 +162,7 @@ for (const winCodeSign of winCodeSignVersions) {
         return Promise.resolve()
       }))
     test("certificateFile/password - sign as Promise", ({expect}) => testCustomSign(expect, () => Promise.resolve()))
-    test("certificateFile/password - sign as function", async ({expect}) => testCustomSign(expect, (await import("../helpers/customWindowsSign")).default))
+    test("certificateFile/password - sign as function", async ({expect}) => testCustomSign(expect, (await import("../helpers/customWindowsSign.js")).default))
     test("certificateFile/password - sign as path", ({expect}) => testCustomSign(expect, path.join(__dirname, "../helpers/customWindowsSign.mjs")))
 
     test("custom sign can call getToolPath() via packager.signingManager", ({expect}) => {

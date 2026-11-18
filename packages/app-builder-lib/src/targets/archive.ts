@@ -1,12 +1,11 @@
 import { debug7z, exec, exists, log, statOrNull, unlinkIfExists } from "builder-util"
 import { move } from "fs-extra"
 import * as path from "path"
-import { create } from "tar"
-import { TarOptionsWithAliasesAsync } from "tar/dist/commonjs/options"
+import { create, TarOptionsWithAliasesAsync } from "tar"
 import { TmpDir } from "temp-file"
 import { CompressionLevel, Platform } from "../core"
-import { getLinuxToolsMacToolset } from "../toolsets/linux"
 import { getPath7za } from "../toolsets/7zip"
+import { getLinuxToolsMacToolset } from "../toolsets/linux"
 
 // Values accepted by ELECTRON_BUILDER_7Z_FILTER (passed through as `-mf=<value>`). "OFF" disables the
 // branch/exec filter entirely (plain LZMA2); the rest are 7-Zip branch converters. 7za matches these
@@ -29,8 +28,8 @@ type TarConfig = {
 }
 
 /** @internal */
-export async function tar({ compression, format, outFile, dirToArchive, isMacApp, tempDirManager }: TarConfig): Promise<void> {
-  const tarFile = await tempDirManager.getTempFile({ suffix: ".tar" })
+export async function tar({compression, format, outFile, dirToArchive, isMacApp, tempDirManager}: TarConfig): Promise<void> {
+  const tarFile = await tempDirManager.getTempFile({suffix: ".tar"})
   const tarArgs: TarOptionsWithAliasesAsync = {
     file: tarFile,
     portable: true,
@@ -59,9 +58,9 @@ export async function tar({ compression, format, outFile, dirToArchive, isMacApp
   }
 
   const compressFormat = format === "tar.xz" ? "xz" : format === "tar.bz2" ? "bzip2" : "gzip"
-  const args = compute7zCompressArgs(compressFormat, { isRegularFile: true, method: "DEFAULT", compression })
+  const args = compute7zCompressArgs(compressFormat, {isRegularFile: true, method: "DEFAULT", compression})
   args.push(outFile, tarFile)
-  await exec(await getPath7za(), args, { cwd: path.dirname(dirToArchive) }, debug7z.enabled)
+  await exec(await getPath7za(), args, {cwd: path.dirname(dirToArchive)}, debug7z.enabled)
 }
 
 export interface ArchiveOptions {
@@ -166,11 +165,13 @@ export function compute7zCompressArgs(format: string, options: ArchiveOptions = 
     validateCompressionLevel(compressionLevel)
     storeOnly = false // env var overrides "store" config
     args.push(`-mx=${compressionLevel}`)
-  } else if (storeOnly) {
+  }
+  else if (storeOnly) {
     // -mx=0 is the universal "no compression" flag across all formats (zip, 7z, gzip, xz, bzip2).
     // -mm=Copy would only be valid for zip/7z and causes E_INVALIDARG on xz/gzip/bzip2.
     args.push("-mx=0")
-  } else {
+  }
+  else {
     const isZip = format === "zip"
     // ZIP uses level 7 by default; everything else (7z, gzip, xz, bzip2) uses level 9
     args.push("-mx=" + (isZip && options.compression !== "maximum" ? "7" : "9"))
@@ -180,7 +181,7 @@ export function compute7zCompressArgs(format: string, options: ArchiveOptions = 
     }
   }
 
-  const { blockSize } = options
+  const {blockSize} = options
   const is7z = format === "7z" || format.endsWith(".7z")
   // -mx=0 with an explicit -m0=LZMA2 would compress instead of store, so the block size is only pinned when compressing
   const pinBlockSize = is7z && typeof blockSize === "number" && !storeOnly && compressionLevel !== "0" && (options.method == null || options.method === "DEFAULT")
@@ -189,7 +190,8 @@ export function compute7zCompressArgs(format: string, options: ArchiveOptions = 
       throw new Error(`blockSize must be a positive integer (MB), got ${blockSize}`)
     }
     args.push(`-m0=LZMA2${options.dictSize != null ? `:d=${options.dictSize}m` : ""}:c=${blockSize}m`)
-  } else if (options.dictSize != null) {
+  }
+  else if (options.dictSize != null) {
     args.push(`-md=${options.dictSize}m`)
   }
 
@@ -217,7 +219,8 @@ export function compute7zCompressArgs(format: string, options: ArchiveOptions = 
       if (!storeOnly) {
         args.push("-mf=BCJ")
       }
-    } else {
+    }
+    else {
       const sevenZFilter = process.env.ELECTRON_BUILDER_7Z_FILTER
       if (sevenZFilter) {
         const canonicalFilter = sevenZFilter.toUpperCase()
@@ -233,7 +236,8 @@ export function compute7zCompressArgs(format: string, options: ArchiveOptions = 
 
   if (options.method != null && options.method !== "DEFAULT") {
     args.push(`-mm=${options.method}`)
-  } else if (format === "zip") {
+  }
+  else if (format === "zip") {
     // -mm is only set explicitly for zip (Deflate/Copy) and includes the UTF-8 flag.
     // For all other formats the codec is implicit from the output file extension.
     args.push(`-mm=${storeOnly ? "Copy" : "Deflate"}`)
@@ -244,12 +248,11 @@ export function compute7zCompressArgs(format: string, options: ArchiveOptions = 
 }
 
 // 7z is very fast, so, use ultra compression
-/** @internal */
 export async function archive(format: string, outFile: string, dirToArchive: string, options: ArchiveOptions = {}): Promise<string> {
   const outFileStat = await statOrNull(outFile)
   const dirStat = await statOrNull(dirToArchive)
   if (outFileStat && dirStat && outFileStat.mtime > dirStat.mtime) {
-    log.info({ reason: "Archive file is up to date", outFile }, `skipped archiving`)
+    log.info({reason: "Archive file is up to date", outFile}, `skipped archiving`)
     return outFile
   }
 
@@ -257,7 +260,7 @@ export async function archive(format: string, outFile: string, dirToArchive: str
   // fallback for NFD-normalized filenames, which 7za mangles.
   let use7z = true
   if (process.platform === "darwin" && format === "zip" && dirToArchive.normalize("NFC") !== dirToArchive) {
-    log.warn({ reason: "7z doesn't support NFD-normalized filenames" }, `using zip`)
+    log.warn({reason: "7z doesn't support NFD-normalized filenames"}, `using zip`)
     use7z = false
   }
 
@@ -294,11 +297,13 @@ export async function archive(format: string, outFile: string, dirToArchive: str
 
     const cwd = options.withoutDir ? dirToArchive : path.dirname(dirToArchive)
     try {
-      await exec(await getPath7za(), args, { cwd }, debug7z.enabled)
-    } catch (e: any) {
+      await exec(await getPath7za(), args, {cwd}, debug7z.enabled)
+    }
+    catch (e: any) {
       if (e.code === "ENOENT" && !(await exists(dirToArchive))) {
         throw new Error(`Cannot create archive: "${dirToArchive}" doesn't exist`)
-      } else {
+      }
+      else {
         throw e
       }
     }
@@ -321,13 +326,15 @@ export async function archive(format: string, outFile: string, dirToArchive: str
           appendArgs.push("-mhc=off")
         }
         appendArgs.push("-mtm=off", "-mta=off")
-      } else if (format === "zip") {
+      }
+      else if (format === "zip") {
         appendArgs.push("-mm=Copy", "-mcu")
       }
       appendArgs.push(outFile, ...storedMembers)
-      await exec(await getPath7za(), appendArgs, { cwd }, debug7z.enabled)
+      await exec(await getPath7za(), appendArgs, {cwd}, debug7z.enabled)
     }
-  } else {
+  }
+  else {
     // macOS native zip (NFD fallback): -y preserves symlinks
     const args = ["-q", "-r", "-y"]
     if (debug7z.enabled) {
@@ -335,13 +342,14 @@ export async function archive(format: string, outFile: string, dirToArchive: str
     }
     if (options.compression === "store") {
       args.push("-0")
-    } else {
+    }
+    else {
       args.push(options.compression === "maximum" ? "-9" : "-7")
     }
     await unlinkIfExists(outFile)
     args.push(outFile, options.withoutDir ? "." : path.basename(dirToArchive))
     args.push(...buildExcludeArgs(options.excluded, "-x"))
-    await exec("zip", args, { cwd: options.withoutDir ? dirToArchive : path.dirname(dirToArchive) }, debug7z.enabled)
+    await exec("zip", args, {cwd: options.withoutDir ? dirToArchive : path.dirname(dirToArchive)}, debug7z.enabled)
   }
 
   return outFile

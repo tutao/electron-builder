@@ -1,4 +1,4 @@
-import type { ToolsetConfig } from "app-builder-lib/src/configuration"
+import type { ToolsetConfig } from "app-builder-lib/src/configuration.js"
 import * as fs from "fs"
 import * as path from "path"
 import type * as _BlackboxWinSuite from "../src/updater/blackboxUpdateWinSuite"
